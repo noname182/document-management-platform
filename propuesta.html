@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Propuesta Técnica Integral: Plataforma Documental & DevOps QA</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 16mm 18mm 16mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.45;
+      color: #1f2937;
+      background-color: #f3f4f6;
+      margin: 0;
+      padding: 0;
+    }
+    .no-print-bar {
+      background-color: #111827;
+      color: #ffffff;
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    }
+    .no-print-bar button {
+      background-color: #2563eb;
+      color: #ffffff;
+      border: none;
+      padding: 8px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .no-print-bar button:hover {
+      background-color: #1d4ed8;
+    }
+    .document-container {
+      max-width: 210mm;
+      margin: 24px auto;
+      background: #ffffff;
+      padding: 24mm 20mm;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+    }
+    h1.doc-title {
+      font-size: 18pt;
+      font-weight: 800;
+      color: #111827;
+      margin: 0 0 4px 0;
+      line-height: 1.2;
+    }
+    .doc-subtitle {
+      font-size: 9pt;
+      font-weight: 700;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .summary-box {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-left: 4px solid #2563eb;
+      padding: 10px 14px;
+      font-size: 9.5pt;
+      margin-bottom: 20px;
+      text-align: justify;
+    }
+    h2.section-title {
+      font-size: 12pt;
+      font-weight: 700;
+      color: #111827;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      border-bottom: 1.5px solid #e5e7eb;
+      padding-bottom: 4px;
+    }
+    h3.subsection-title {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #1f2937;
+      margin-top: 12px;
+      margin-bottom: 4px;
+    }
+    p, ul {
+      margin-top: 4px;
+      margin-bottom: 8px;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+    .diagram-wrapper {
+      margin: 14px 0;
+      border: 1px solid #d1d5db;
+      background-color: #fafafa;
+      padding: 12px;
+      text-align: center;
+    }
+    pre.ascii-diagram {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 8pt;
+      line-height: 1.25;
+      margin: 0 auto;
+      display: inline-block;
+      text-align: left;
+      color: #111827;
+      white-space: pre;
+    }
+    pre.code-block {
+      background-color: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 8px 12px;
+      font-family: Consolas, "Liberation Mono", Menlo, Courier, monospace;
+      font-size: 8.5pt;
+      line-height: 1.35;
+      color: #0f172a;
+      overflow-x: auto;
+      margin: 6px 0 10px 0;
+    }
+    .code-comment {
+      color: #64748b;
+      font-style: italic;
+    }
+    table.data-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0 14px 0;
+      font-size: 8.5pt;
+    }
+    table.data-table th, table.data-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    table.data-table th {
+      background-color: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+    }
+    table.data-table tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+    .page-break {
+      page-break-before: always;
+      break-before: page;
+      margin-top: 16px;
+    }
+    @media print {
+      .no-print-bar {
+        display: none !important;
+      }
+      body {
+        background-color: #ffffff !important;
+      }
+      .document-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra superior no imprimible para descargar con el motor nativo de Google -->
+  <div class="no-print-bar">
+    <div>
+      <strong style="font-size: 15px;">Propuesta Técnica Integral v2.0</strong> — Plataforma Documental & DevOps QA
+    </div>
+    <button onclick="window.print()">
+      <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path>
+      </svg>
+      Descargar en PDF (Imprimir)
+    </button>
+  </div>
+
+  <div class="document-container">
+
+    <div class="doc-subtitle">Diseño Técnico de Proyecto: Gestión Documental Multi-Tenant & CI/CD</div>
+    <h1 class="doc-title">Propuesta Técnica Integral: Plataforma Documental & DevOps QA</h1>
+
+    <div class="summary-box">
+      <strong>Resumen de Arquitectura v2.0:</strong> Monorepo desacoplado en 2 microservicios especializados[cite: 11]. Servicio 1 (Core API en PHP Laravel 11) gestiona autenticación JWT, autorización híbrida (RBAC con 5 roles y motor de políticas ABAC), control de concurrencia pesimista (Check-out/Check-in), reversión segura (Forward-Rollback) y persistencia relacional en PostgreSQL 16[cite: 11]. Servicio 2 (Doc Processor en Node.js 20+) administra I/O masivo por streaming, análisis de magic bytes, cálculo criptográfico SHA-256 en memoria, cuarentena automática contra malware y almacenamiento S3 sobre un clúster MinIO particionado en 3 buckets globales[cite: 11]. Incorpora pruebas unitarias, de integración, de contrato (Microcks), seguridad estática/dinámica (SonarQube/OWASP ZAP), pruebas de rendimiento (k6) y pipeline CI/CD[cite: 11].
+    </div>
+
+    <h2 class="section-title">1. Arquitectura del Sistema: Desacoplamiento de Microservicios</h2>
+    <ul>
+      <li><strong>Microservicio 1: Core API (PHP 8.3 / Laravel 11):</strong> Maneja peticiones HTTP ligeras de metadatos (10-25 ms), catálogo de categorías/departamentos, evaluación de reglas lógicas ABAC en JSONB, registro inmutable en auditoría forense (append-only) y emisión de candados transaccionales[cite: 11].</li>
+      <li><strong>Microservicio 2: Doc Processor (Node.js 20+):</strong> Procesa transferencias multipart de archivos por flujo de bytes (streams) sin bloquear el hilo principal[cite: 11]. Inspecciona cabeceras binarias (magic bytes) para prevenir extensiones fraudulentas, ejecuta escaneo automático de firmas y calcula el hash SHA-256 definitivo directamente hacia MinIO[cite: 11].</li>
+    </ul>
+
+    <div class="diagram-wrapper">
+      <pre class="ascii-diagram">
+                           +---------------------------------------+
+                           |       Frontend (Next.js / React)      |[cite: 11]
+                           +---------------------------------------+
+                                  /                         \
+       Peticiones Metadatos / JWT/   [cite: 11]                   \ Subida Multipart (Stream)[cite: 11]
+       Check-out / Rollback / ABAC   /                             \ Magic Bytes & Checksum SHA-256[cite: 11]
+                                    v                               v
+         +------------------------------------+   OpenAPI    +------------------------------------+
+         |      Microservicio 1: Core API     |<------------>|   Microservicio 2: Doc Processor   |[cite: 11]
+         |          (PHP Laravel 11)          |   (Microcks) |          (Node.js 20+ / TS)        |[cite: 11]
+         +------------------------------------+              +------------------------------------+
+         | - Autenticación JWT                |[cite: 11]          | - Cuarentena 100% Automática       |
+         | - Matriz RBAC (5 Roles Universales)|              | - Validación de Magic Bytes        |[cite: 11]
+         | - Motor ABAC (access_policies JSON)|              | - Checksum Criptográfico (SHA-256) |[cite: 11]
+         | - Bloqueo Concurrente (Check-out)  |              | - Transferencia Stream hacia MinIO |[cite: 11]
+         | - Trazabilidad Audit Logs          |              +------------------------------------+
+         +------------------------------------+                                |
+                           |                                                   |
+                           v                                                   v
+            Base de Datos: PostgreSQL 16[cite: 11]                 Almacenamiento S3 (MinIO Cluster)[cite: 11]
+            - tenants / departments / users                  - quarantine-vault (Aislamiento)
+            - documents / document_versions                  - documents-vault (Ofimática / PDF)
+            - access_policies / audit_logs                   - media-vault (Videos / DICOM / RAW)
+      </pre>
+    </div>
+
+    <h2 class="section-title">2. Arquitectura de Almacenamiento S3 (MinIO) y Cuarentena Automática</h2>
+    <p>El almacenamiento no crea depósitos físicos por empresa. Utiliza <strong>3 buckets globales de infraestructura</strong> y aísla a los inquilinos mediante prefijos de clave lógica (<em>Key prefixes</em>) direccionados por el hash SHA-256 del binario:</p>
+    
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Bucket Global</th>
+          <th>Tipo de Objeto</th>
+          <th>Estructura de Clave S3 (Key)</th>
+          <th>Política y Ciclo de Vida</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>quarantine-vault</strong></td>
+          <td>Binarios recién subidos</td>
+          <td><code>{tenant_slug}/temp_{upload_token}.bin</code></td>
+          <td>Aislamiento automático. Auto-purga transcurridas 24 horas.</td>
+        </tr>
+        <tr>
+          <td><strong>documents-vault</strong></td>
+          <td>PDF, DOCX, XLSX, TXT</td>
+          <td><code>{tenant_slug}/docs/{document_id}/v{n}/{sha256}.{ext}</code></td>
+          <td>Inmutable. Indexación de texto para búsqueda y versionado.</td>
+        </tr>
+        <tr>
+          <td><strong>media-vault</strong></td>
+          <td>Video médico, DICOM, RAW</td>
+          <td><code>{tenant_slug}/media/{document_id}/v{n}/{sha256}.{ext}</code></td>
+          <td>Permite subida multipart por bloques y URLs prefirmadas.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>Pipeline de Cuarentena 100% Automático:</strong> El archivo se recibe inicialmente en <code>quarantine-vault</code>. El microservicio en Node.js inspecciona los primeros 512 bytes (magic bytes) contrastándolos con el MIME declarado y ejecuta el escáner antivirus. Si el binario resulta infectado o alterado, se retiene con estado <code>QUARANTINED</code> y se notifica al log forense; si resulta íntegro, se promueve al bucket definitivo (<code>documents-vault</code> o <code>media-vault</code>), registrando la versión en PostgreSQL y eliminando el archivo temporal de cuarentena.</p>
+
+    <div class="page-break"></div>
+
+    <h2 class="section-title">3. Modelo de Autorización Híbrido: RBAC + Motor ABAC Dinámico</h2>
+    <p>El sistema combina una jerarquía de roles universales con evaluación condicional basada en atributos (ABAC):</p>
+    
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 15%;">Rol</th>
+          <th style="width: 45%;">Permisos Atómicos (permission_key)</th>
+          <th style="width: 40%;">Evaluación Contextual ABAC (access_policies)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>VIEWER</strong></td>
+          <td><code>doc:read</code>, <code>doc:download</code></td>
+          <td>Permite lectura exclusivamente si el documento tiene estado <code>APPROVED</code> y pertenece al tenant.</td>
+        </tr>
+        <tr>
+          <td><strong>EDITOR</strong></td>
+          <td><code>doc:read</code>, <code>doc:download</code>, <code>doc:create</code>, <code>doc:checkout</code>, <code>doc:checkin</code>, <code>doc:discard_checkout</code>, <code>doc:rollback</code></td>
+          <td>Acceso condicionado a que <code>user.department_id == category.department_id</code>. Rollback habilitado únicamente en borradores propios pendientes de aprobación.</td>
+        </tr>
+        <tr>
+          <td><strong>APPROVER</strong></td>
+          <td><code>doc:read</code>, <code>doc:download</code>, <code>doc:approve</code>, <code>doc:reject</code>, <code>doc:rollback</code>, <code>audit:read</code></td>
+          <td>Revisión y rollback transversal a nivel de organización para control de calidad y cumplimiento normativo.</td>
+        </tr>
+        <tr>
+          <td><strong>TENANT_ADMIN</strong></td>
+          <td>Matriz completa de Approver + <code>doc:force_unlock</code>, <code>user:manage</code>, <code>dept:manage</code></td>
+          <td>Administración integral de la estructura organizativa y liberación forzada de bloqueos huérfanos.</td>
+        </tr>
+        <tr>
+          <td><strong>SYSTEM_ADMIN</strong></td>
+          <td>Matriz global + <code>quarantine:manage</code>, <code>system:metrics</code>, <code>tenant:manage</code></td>
+          <td>Control de infraestructura del clúster MinIO, métricas del sistema y desbloqueo de falsos positivos.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 class="section-title">4. Control de Concurrencia y Gobernanza Forense (Forward-Rollback)</h2>
+    <ul>
+      <li><strong>Check-out / Check-in Transaccional:</strong> Al solicitar edición (<code>doc:checkout</code>), PostgreSQL activa un candado pesimista estableciendo <code>is_locked = TRUE</code>, <code>locked_by_user_id = user_id</code> y <code>locked_at = CURRENT_TIMESTAMP</code>. Peticiones concurrentes sobre el documento son denegadas inmediatamente con código HTTP 423 (<em>Locked</em>).</li>
+      <li><strong>Reversión hacia Adelante (Forward-Rollback con clave <code>doc:rollback</code>):</strong> Para garantizar la cadena de custodia y la inmutabilidad documental, una versión errónea nunca se elimina física ni lógicamente. Al solicitar restaurar una versión anterior (ej. v1 sobre la errónea v2), el sistema genera la versión v3 apuntando al hash SHA-256 de la v1 original sin duplicar espacio en MinIO, marcando la v2 como <code>DEPRECATED</code> y registrando el evento en <code>document_audit_logs</code>.</li>
+    </ul>
+
+    <h2 class="section-title">5. Estructura Estándar del Monorepo</h2>
+    <pre class="code-block">
+document-management-platform/[cite: 11]
+├── .github/
+│   └── workflows/
+│       ├── ci-core.yml                 <span class="code-comment"># Tests unitarios/integración + SonarCloud</span>[cite: 11]
+│       ├── ci-processor.yml            <span class="code-comment"># Tests de streams, magic bytes + SonarCloud</span>[cite: 11]
+│       └── contract-microcks.yml       <span class="code-comment"># Validación de contrato OpenAPI en CI/CD</span>[cite: 11]
+├── contracts/
+│   └── processor-contract.yaml         <span class="code-comment"># Contrato OpenAPI 3.0 entre Laravel y Node.js</span>[cite: 11]
+├── frontend/                           <span class="code-comment"># Next.js (React + Tailwind CSS)</span>[cite: 11]
+├── services/
+│   ├── core-api/                       <span class="code-comment"># Microservicio 1: PHP Laravel 11</span>[cite: 11]
+│   │   ├── app/Models/                 <span class="code-comment"># Tenant, User, Document, DocumentVersion, Policy</span>
+│   │   ├── database/migrations/        <span class="code-comment"># Migraciones ordenadas (PostgreSQL 16)</span>
+│   │   ├── database/seeders/           <span class="code-comment"># RolesAndPermissionsSeeder, TestScenarioSeeder</span>
+│   │   ├── tests/                      <span class="code-comment"># tests/Unit y tests/Feature (PHPUnit)</span>[cite: 13]
+│   │   └── Dockerfile                  <span class="code-comment"># PHP 8.3-FPM + pdo_pgsql</span>[cite: 13]
+│   └── doc-processor/                  <span class="code-comment"># Microservicio 2: Node.js 20+</span>[cite: 13]
+│       ├── src/                        <span class="code-comment"># Servicios de Cuarentena, MagicBytes y MinIO S3</span>[cite: 13]
+│       ├── tests/                      <span class="code-comment"># Tests unitarios de streams y SHA-256 (Jest)</span>[cite: 13]
+│       └── Dockerfile                  <span class="code-comment"># Contenedor Node.js Alpine</span>[cite: 13]
+├── tests/
+│   ├── performance/upload-stress.js    <span class="code-comment"># Scripts de prueba k6 (Load, Stress, Spike, Soak)</span>[cite: 13]
+│   └── security/zap-baseline.conf      <span class="code-comment"># Configuración DAST (OWASP ZAP)</span>[cite: 13]
+├── docker-compose.yml                  <span class="code-comment"># Orquestación local (Core API, Postgres, MinIO)</span>[cite: 13]
+└── Jenkinsfile                         <span class="code-comment"># Pipeline declarativo Groovy para CI/CD</span>[cite: 13]
+    </pre>
+
+    <div class="page-break"></div>
+
+    <h2 class="section-title">6. Pruebas de Software: Unitarias, Integración y Casos de Borde</h2>
+    
+    <h3 class="subsection-title">A. Pruebas Unitarias (Unit Tests)</h3>
+    <p>Prueban la unidad de código más pequeña de forma aislada, sin interactuar con base de datos, red ni almacenamiento físico en disco (ejecución en milisegundos)[cite: 14]:</p>
+    <pre class="code-block">
+<span class="code-comment">// tests/Unit/CalculadoraTest.php en Laravel</span>[cite: 14]
+namespace Tests\Unit;[cite: 14]
+use PHPUnit\Framework\TestCase;[cite: 14]
+
+class CalculadoraTest extends TestCase {[cite: 14]
+    public function test_aplica_descuento_correctamente(): void {[cite: 14]
+        $precioOriginal = 100;[cite: 14]
+        $descuento = 20;[cite: 14]
+        $precioFinal = $precioOriginal - $descuento;[cite: 14]
+        $this->assertEquals(80, $precioFinal);[cite: 14]
+    }
+}
+    </pre>
+
+    <h3 class="subsection-title">B. Pruebas de Integración (Integration Tests)</h3>
+    <p>Verifican la interacción armónica entre componentes del sistema (controladores, migraciones, base de datos de pruebas real y eventos)[cite: 14]:</p>
+    <pre class="code-block">
+<span class="code-comment">// tests/Feature/RegistroUsuarioTest.php en Laravel</span>[cite: 14]
+namespace Tests\Feature;[cite: 14]
+use Illuminate\Foundation\Testing\RefreshDatabase;[cite: 14]
+use Tests\TestCase;[cite: 14]
+
+class RegistroUsuarioTest extends TestCase {[cite: 14]
+    use RefreshDatabase; <span class="code-comment">// Resetea la BD de pruebas tras cada test</span>[cite: 14]
+
+    public function test_un_usuario_puede_registrarse_por_api(): void {[cite: 14]
+        $response = $this->postJson('/api/register', [[cite: 14]
+            'name' => 'Carlos',[cite: 14]
+            'email' => 'carlos@example.com',[cite: 14]
+            'password' => 'secreto123',[cite: 14]
+            'password_confirmation' => 'secreto123',[cite: 14]
+        ]);[cite: 14]
+        $response->assertStatus(201); <span class="code-comment">// Afirma estado 201 Created</span>[cite: 14]
+        $this->assertDatabaseHas('users', ['email' => 'carlos@example.com']); <span class="code-comment">// Verifica en tabla</span>[cite: 14]
+    }
+}
+    </pre>
+
+    <h3 class="subsection-title">C. Pruebas de Casos de Borde (Boundary / Edge Cases)</h3>
+    <p>Comprueban el comportamiento del sistema en los límites permitidos, donde se concentran las fallas de seguridad y bugs[cite: 14]:</p>
+    <ul>
+      <li>Valor mínimo permitido y valor inmediatamente inferior (ej. archivo de 0 bytes o token vacío)[cite: 14].</li>
+      <li>Valor máximo permitido e inmediatamente superior (ej. archivo de 5.01 GB intentando ingresar a <code>media-vault</code>)[cite: 14].</li>
+      <li>Valores atípicos: binarios ejecutables con extensión <code>.pdf</code> simulada, nombres con inyecciones de ruta (<code>../../</code>) y peticiones simultáneas de check-out en milisegundos idénticos[cite: 14].</li>
+    </ul>
+
+    <h2 class="section-title">7. Pruebas de Carga y Rendimiento con k6</h2>
+    <p>Se evalúa la estabilidad del sistema mediante cuatro perfiles de tráfico en k6[cite: 15]:</p>
+    <ul>
+      <li><strong>1. Load Testing (Carga esperada):</strong> Evalúa el rendimiento durante el volumen habitual de usuarios simultáneos navegando y consultando metadatos[cite: 15].</li>
+      <li><strong>2. Stress Testing (Límite):</strong> Incrementa la concurrencia progresivamente hasta hallar el punto de quiebre de conexiones en PostgreSQL y MinIO[cite: 15].</li>
+      <li><strong>3. Spike Testing (Pico violento):</strong> Simula ráfagas masivas de peticiones de check-out en segundos para verificar la consistencia de los candados sin caídas[cite: 15].</li>
+      <li><strong>4. Soak Testing (Resistencia prolongada):</strong> Mantiene una carga media durante varias horas continuas para detectar fugas de memoria en Node.js o saturación en disco[cite: 15].</li>
+    </ul>
+
+    <div class="page-break"></div>
+
+    <h2 class="section-title">8. Pruebas de Contrato con Microcks (OpenAPI 3.0)</h2>
+    <p>Microcks actúa como servidor de simulación (mocking) y validador de contratos OpenAPI 3.0 en CI/CD[cite: 16]:</p>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Característica</th>
+          <th>Mock en Código (PHPUnit / Jest)</th>
+          <th>Microcks (API Mocking)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>¿Dónde vive?</strong></td>
+          <td>En el archivo de test local[cite: 16].</td>
+          <td>En un contenedor o servidor independiente[cite: 16].</td>
+        </tr>
+        <tr>
+          <td><strong>¿Qué simula?</strong></td>
+          <td>Clases, métodos o llamadas internas en código[cite: 16].</td>
+          <td>Endpoints REST completos entre Laravel y Node.js[cite: 16].</td>
+        </tr>
+        <tr>
+          <td><strong>Propósito</strong></td>
+          <td>Probar lógica aislada sin dependencias externas[cite: 16].</td>
+          <td>Permitir el avance desacoplado del frontend y verificar que los servicios no rompan el contrato API[cite: 16].</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>El Ciclo de Contratos en CI/CD:</strong> Si el Frontend y el Core API acuerdan en <code>processor-contract.yaml</code> que la respuesta de subida exige el atributo <code>sha256_hash</code>, pero el Doc Processor responde por error <code>hash</code>, Microcks frena el pipeline con error en rojo antes del despliegue: <em>"Violación de contrato: se esperaba 'sha256_hash', pero se recibió 'hash'"</em>[cite: 16].</p>
+
+    <h2 class="section-title">9. Seguridad: SAST (SonarCloud) vs. DAST (OWASP ZAP)</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Característica</th>
+          <th>SAST (Estático - SonarCloud)</th>
+          <th>DAST (Dinámico - OWASP ZAP)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>¿App encendida?</strong></td>
+          <td>No. Lee archivos de código fuente en reposo[cite: 16].</td>
+          <td>Sí. Requiere que los contenedores estén encendidos y respondiendo[cite: 16].</td>
+        </tr>
+        <tr>
+          <td><strong>Punto de vista</strong></td>
+          <td>Caja Blanca (White-box): conoce el código fuente[cite: 16].</td>
+          <td>Caja Negra (Black-box): actúa como atacante externo[cite: 16].</td>
+        </tr>
+        <tr>
+          <td><strong>Qué detecta</strong></td>
+          <td>Inyecciones SQL, credenciales expuestas en plano, code smells[cite: 16].</td>
+          <td>Cabeceras HTTP sin flag seguro, fallos CORS, fugas de traza y XSS[cite: 16].</td>
+        </tr>
+        <tr>
+          <td><strong>Momento</strong></td>
+          <td>Al compilar o en cada commit / Pull Request[cite: 16].</td>
+          <td>Al desplegar en entornos de prueba (Staging)[cite: 16].</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="subsection-title">Configuración e Integración de SonarCloud</h3>
+    <pre class="code-block">
+<span class="code-comment"># 1. Archivo sonar-project.properties en la raíz del repositorio</span>[cite: 16]
+sonar.projectKey=document-management-platform[cite: 16]
+sonar.organization=tu-organizacion[cite: 16]
+sonar.sources=services/core-api/app, services/doc-processor/src[cite: 16]
+sonar.exclusions=vendor/**, node_modules/**, tests/**[cite: 16]
+
+<span class="code-comment"># 2. Bloque en GitHub Actions (.github/workflows/ci.yml)</span>[cite: 16]
+name: SonarCloud Scan[cite: 16]
+uses: SonarSource/sonar-cloud-action@v4[cite: 16]
+env:
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}[cite: 16]
+    </pre>
+
+    <div class="page-break"></div>
+
+    <h2 class="section-title">10. Docker y Kubernetes: Conceptos y Despliegue</h2>
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Concepto</th>
+          <th>Definición Técnica</th>
+          <th>Analogía Práctica</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Dockerfile</strong></td>
+          <td>Archivo de texto plano con instrucciones de construcción (ej. PHP 8.3 + pdo_pgsql)[cite: 1].</td>
+          <td>La receta escrita en papel[cite: 1].</td>
+        </tr>
+        <tr>
+          <td><strong>Imagen Docker</strong></td>
+          <td>Binario empaquetado resultante de compilar esa receta (<code>docker build</code>)[cite: 1].</td>
+          <td>El pastel horneado y congelado[cite: 1].</td>
+        </tr>
+        <tr>
+          <td><strong>Contenedor</strong></td>
+          <td>La imagen encendida y ejecutándose en memoria RAM (<code>docker run</code> / <code>compose up</code>)[cite: 1].</td>
+          <td>El pastel servido en la mesa listo para comer[cite: 1].</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 class="subsection-title">Interacción de Archivos YAML en Despliegue</h3>
+    <ul>
+      <li><strong>YAML #1 (CI/CD Pipeline):</strong> Vive en <code>.github/workflows/deploy.yml</code> (o <code>Jenkinsfile</code>)[cite: 1]. Construye las imágenes Docker optimizadas y las transfiere al registro privado (Docker Hub / AWS ECR)[cite: 1].</li>
+      <li><strong>YAML #2 (Manifiesto de Kubernetes):</strong> Vive en el repositorio (ej. <code>k8s/deployment.yaml</code>)[cite: 1]. Dicta a Kubernetes el número de réplicas de Core API / Doc Processor, puertos de red, límites de CPU/RAM y secretos de conexión hacia MinIO y PostgreSQL[cite: 1].</li>
+    </ul>
+
+    <h3 class="subsection-title">Flujo de Ejecución del Pipeline en Jenkins</h3>
+    <div class="diagram-wrapper">
+      <pre class="ascii-diagram">
++--------------------+      +--------------------+      +--------------------+
+| 1. Checkout Código | ---->| 2. Unit/Edge Tests | ---->| 3. SAST Scan       |[cite: 1]
+|     (Git SCM)      |      |   (PHPUnit/Jest)   |      |  SonarCloud Gate   |[cite: 1]
++--------------------+      +--------------------+      +--------------------+
+                                                                   |
+                                                                   v
++--------------------+      +--------------------+      +--------------------+
+|   6. Despliegue    |<-----| 5. DAST Scan       |<-----| 4. Contract Test   |[cite: 1]
+|  (Docker/K8s/Kind) |      |    (OWASP ZAP)     |      |  (Microcks OpenAPI)|[cite: 1]
++--------------------+      +--------------------+      +--------------------+
+      </pre>
+    </div>
+
+  </div>
+
+</body>
+</html>

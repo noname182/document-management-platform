@@ -1,0 +1,68 @@
+name: doc-platform
+
+networks:
+  doc_network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  minio_data:
+
+services:
+  # Base de Datos Relacional para Core API (Laravel)
+  postgres:
+    image: postgres:16-alpine
+    container_name: doc_platform_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: doc_platform_db
+      POSTGRES_USER: doc_user
+      POSTGRES_PASSWORD: secret_db_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - doc_network
+
+  # Almacenamiento S3 (MinIO Community Image)
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    container_name: doc_platform_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minio_admin
+      MINIO_ROOT_PASSWORD: minio_secret_key
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - doc_network
+
+  # Backend Laravel (Core API)
+  core-api:
+    build:
+      context: ./services/core-api
+      dockerfile: Dockerfile
+    container_name: doc_platform_core_api
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./services/core-api:/var/www/html
+    ports:
+      - "8000:8000"
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: doc_platform_db
+      DB_USERNAME: doc_user
+      DB_PASSWORD: secret_db_password
+    depends_on:
+      - postgres
+    networks:
+      - doc_network
+    command: php artisan serve --host=0.0.0.0 --port=8000
