@@ -1,0 +1,25 @@
+### Variables de entorno
+@baseUrl = http://localhost:8000/api/v1
+
+### 1. Iniciar Sesión (Login)
+# @name loginRequest
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@olivos.test",
+  "password": "password123"
+}
+
+### 2. Guardar el token de la respuesta automáticamente
+@authToken = {{loginRequest.response.body.data.access_token}}
+
+### 3. Consultar datos del usuario autenticado (/me)
+GET {{baseUrl}}/auth/me
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 4. Cerrar sesión (/logout)
+POST {{baseUrl}}/auth/logout
+Authorization: Bearer {{authToken}}
+Accept: application/json
