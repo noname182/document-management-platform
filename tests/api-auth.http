@@ -23,3 +23,28 @@ Accept: application/json
 POST {{baseUrl}}/auth/logout
 Authorization: Bearer {{authToken}}
 Accept: application/json
+
+### 5. Listar documentos del tenant
+GET {{baseUrl}}/documents
+Authorization: Bearer {{authToken}}
+Accept: application/json
+
+### 6. Ejecutar Checkout sobre el documento (adquirir candado)
+# Coloca el id que devuelve el listado anterior
+@documentId = PEGA_AQUI_UN_UUID_DE_DOCUMENTO
+POST {{baseUrl}}/documents/{{documentId}}/checkout
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+{
+  "reason": "Modificación de cláusulas de entrega"
+}
+
+### 7. Intentar adquirir candado concurrentemente (Debe retornar 423 Locked)
+POST {{baseUrl}}/documents/{{documentId}}/checkout
+Authorization: Bearer {{authToken}}
+Content-Type: application/json
+
+### 8. Liberar candado
+POST {{baseUrl}}/documents/{{documentId}}/discard-checkout
+Authorization: Bearer {{authToken}}

@@ -1,0 +1,74 @@
+openapi: 3.0.3
+info:
+  title: Document Processor Service API
+  description: Microservicio en NestJS para ingesta binaria, cuarentena, cálculo SHA-256 e inspección MIME en MinIO.
+  version: 1.0.0
+servers:
+  - url: http://localhost:3001
+    description: Entorno Local de Desarrollo (Docker)
+paths:
+  /documents/process:
+    post:
+      summary: Procesa e inspecciona un archivo documental
+      description: Sube el binario a cuarentena, calcula el hash SHA-256 y lo promueve al bucket definitivo.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Archivo binario (PDF, DOCX, etc.)
+      responses:
+        '201':
+          description: Documento verificado y procesado exitosamente
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: success
+                  message:
+                    type: string
+                    example: Documento verificado, procesado y auditado correctamente
+                  data:
+                    type: object
+                    properties:
+                      hashSha256:
+                        type: string
+                        example: 4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945
+                      mimeType:
+                        type: string
+                        example: application/pdf
+                      quarantineLocation:
+                        type: string
+                        example: quarantine/sample.pdf
+                      storageLocation:
+                        type: string
+                        example: processed-documents/sample.pdf
+                      auditLogRecord:
+                        type: string
+                        example: audit-logs/sample.pdf.audit.json
+        '400':
+          description: Archivo ausente o corrupto
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: No se ha proporcionado ningún archivo
+                  error:
+                    type: string
+                    example: Bad Request
+                  statusCode:
+                    type: integer
+                    example: 400

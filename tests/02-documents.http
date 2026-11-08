@@ -1,0 +1,33 @@
+### Variables de Entorno
+@baseUrl = http://localhost:8000/api/v1
+
+### 1. Autenticación como Admin de Clínica
+# @name loginAdmin
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "jhoel.admin.clinica@gmail.com",
+  "password": "password123"
+}
+
+### 2. Captura del Token
+@token = {{loginAdmin.response.body.data.access_token}}
+
+### 3. Listar Documentos del Tenant
+# @name listDocs
+GET {{baseUrl}}/documents
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### 4. Ver Detalle de un Documento
+# Toma automáticamente el ID del primer documento del listado anterior
+@firstDocId = {{listDocs.response.body.data.data[0].id}}
+GET {{baseUrl}}/documents/{{firstDocId}}
+Authorization: Bearer {{token}}
+Accept: application/json
+
+### 5. Historial de Versiones del Documento
+GET {{baseUrl}}/documents/{{firstDocId}}/versions
+Authorization: Bearer {{token}}
+Accept: application/json

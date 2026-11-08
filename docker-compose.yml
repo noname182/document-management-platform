@@ -66,3 +66,28 @@ services:
     networks:
       - doc_network
     command: php artisan serve --host=0.0.0.0 --port=8000
+
+    # Microservicio Procesador de Documentos (NestJS + MinIO)
+  doc-processor:
+    build:
+      context: ./services/doc-processor
+      dockerfile: Dockerfile
+    container_name: doc_platform_doc_processor
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./services/doc-processor:/app
+      - /app/node_modules
+    ports:
+      - "3001:3000"
+    environment:
+      PORT: 3000
+      MINIO_ENDPOINT: minio
+      MINIO_PORT: 9000
+      MINIO_USE_SSL: "false"
+      MINIO_ACCESS_KEY: minio_admin
+      MINIO_SECRET_KEY: minio_secret_key
+    depends_on:
+      - minio
+    networks:
+      - doc_network
