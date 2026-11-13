@@ -35,8 +35,8 @@ services:
       MINIO_ROOT_USER: minio_admin
       MINIO_ROOT_PASSWORD: minio_secret_key
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9002:9000"
+      - "9003:9001"
     volumes:
       - minio_data:/data
     networks:
@@ -89,5 +89,27 @@ services:
       MINIO_SECRET_KEY: minio_secret_key
     depends_on:
       - minio
+    networks:
+      - doc_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: doc_platform_frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_PROCESSOR_URL: http://localhost:3001
+    depends_on:
+      - core-api
+      - doc-processor
     networks:
       - doc_network

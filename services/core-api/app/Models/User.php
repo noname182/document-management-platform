@@ -45,15 +45,15 @@ class User extends Authenticatable
         return $this->belongsTo(Tenant::class);
     }
 
-    public function department(): BelongsTo
+    public function department()
     {
-        return $this->belongsTo(Department::class);
+        return $this->belongsTo(Department::class, 'department_id');
     }
 
-    public function roles(): BelongsToMany
+    public function roles()
     {
-        // En user_roles, user_id se vincula con role_id (string del rol)
-        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id');
+        return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
+                    ->withPivot(['tenant_id', 'assigned_by', 'assigned_at']);
     }
 
     public function hasRole(string $role): bool
