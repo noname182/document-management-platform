@@ -62,3 +62,8 @@ export interface CreateTenantResponseData {
 export interface UpdateTenantStatusPayload {
   status: 'ACTIVE' | 'SUSPENDED';
 }
+
+export interface UpdateTenantPayload {
+  name: string;
+  slug: string;
+}

@@ -109,7 +109,7 @@ class TenantAndSystemManagementTest extends TestCase
 
         // Verificar persistencia en PostgreSQL
         $this->assertDatabaseHas('tenants', [
-            'name'   => 'Farmacias Chavez Bolivia',
+            'name'   => 'FARMACIAS CHAVEZ BOLIVIA',
             'slug'   => 'farmacias-chavez',
             'status' => 'ACTIVE',
         ]);
@@ -224,5 +224,82 @@ class TenantAndSystemManagementTest extends TestCase
                          ],
                      ],
                  ]);
+    }
+
+    public function system_admin_puede_editar_el_nombre_de_una_organizacion_sin_alterar_su_slug(): void
+    {
+        Sanctum::actingAs($this->sysAdmin);
+
+        $tenant = Tenant::where('slug', 'clinica-olivos')->firstOrFail();
+
+        $response = $this->patchJson("/api/v1/tenants/{$tenant->id}", [
+            'name' => 'Clínica de los Olivos Renovada',
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJsonFragment([
+                     'success' => true,
+                     'name'    => 'CLÍNICA DE LOS OLIVOS RENOVADA',
+                     'slug'    => 'clinica-olivos',
+                 ]);
+
+        $this->assertDatabaseHas('tenants', [
+            'id'   => $tenant->id,
+            'name' => 'CLÍNICA DE LOS OLIVOS RENOVADA',
+            'slug' => 'clinica-olivos',
+        ]);
+    }
+
+    #[Test]
+    public function no_permite_editar_la_organizacion_raiz_platform_system(): void
+    {
+        Sanctum::actingAs($this->sysAdmin);
+
+        $rootTenant = Tenant::where('slug', 'platform-system')->firstOrFail();
+
+        $response = $this->patchJson("/api/v1/tenants/{$rootTenant->id}", [
+            'name' => 'Intento Cambio Root',
+        ]);
+
+        $response->assertStatus(403)
+                 ->assertJsonFragment([
+                     'success' => false,
+                 ]);
+    }
+    #[Test]
+    public function rutas_de_plataforma_validan_bearer_token_real_de_sanctum(): void
+    {
+        $token = $this->sysAdmin->createToken('test-token')->plainTextToken;
+
+        $this->withHeader('Authorization', "Bearer {$token}")
+             ->getJson('/api/v1/system/overview')
+             ->assertStatus(200)
+             ->assertJsonFragment(['success' => true]);
+    }
+
+    #[Test]
+    public function system_admin_puede_editar_el_nombre_y_slug_de_una_organizacion(): void
+    {
+        Sanctum::actingAs($this->sysAdmin);
+
+        $tenant = Tenant::where('slug', 'clinica-olivos')->firstOrFail();
+
+        $response = $this->patchJson("/api/v1/tenants/{$tenant->id}", [
+            'name' => 'Clínica de los Olivos Renovada',
+            'slug' => 'clinica-de-los-olivos-renovada',
+        ]);
+
+        $response->assertStatus(200)
+                 ->assertJsonFragment([
+                     'success' => true,
+                     'name'    => 'CLÍNICA DE LOS OLIVOS RENOVADA',
+                     'slug'    => 'clinica-de-los-olivos-renovada',
+                 ]);
+
+        $this->assertDatabaseHas('tenants', [
+            'id'   => $tenant->id,
+            'name' => 'CLÍNICA DE LOS OLIVOS RENOVADA',
+            'slug' => 'clinica-de-los-olivos-renovada',
+        ]);
     }
 }

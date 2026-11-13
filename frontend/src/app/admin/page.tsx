@@ -9,6 +9,7 @@ import {
   CreateTenantPayload,
   SystemOverviewData,
   TenantItem,
+  UpdateTenantPayload,
 } from "@/features/system-admin/types/system.types";
 import { InfrastructureMetricsGrid } from "@/features/system-admin/components/InfrastructureMetricsGrid";
 import { TenantsTable } from "@/features/system-admin/components/TenantsTable";
@@ -28,6 +29,7 @@ export default function AdminDashboardPage() {
 
   // Estados de acciones
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [editingTenant, setEditingTenant] = useState<TenantItem | null>(null);
   const [isCreatingTenant, setIsCreatingTenant] = useState<boolean>(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{
@@ -140,7 +142,36 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // 3. Manejo de Cambio de Estado (ACTIVE / SUSPENDED)
+  // 3. Manejo de Edición de Organización (PATCH /api/v1/tenants/{id})
+  const handleUpdateTenant = async (
+    id: string,
+    payload: UpdateTenantPayload
+  ) => {
+    setActionLoadingId(id);
+    try {
+      const updatedTenant = await systemService.updateTenant(id, payload);
+      setTenants((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, ...updatedTenant } : t))
+      );
+      setFeedback({
+        message: `Organización "${updatedTenant.name}" actualizada correctamente.`,
+        type: "success",
+      });
+      // Recargar datos para actualizar contadores
+      await reloadData();
+    } catch (error: unknown) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : "Error al actualizar la organización.";
+      setFeedback({ message: msg, type: "error" });
+      throw error;
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  // 4. Manejo de Cambio de Estado (ACTIVE / SUSPENDED)
   const handleToggleStatus = async (
     id: string,
     currentStatus: "ACTIVE" | "SUSPENDED"
@@ -261,17 +292,29 @@ export default function AdminDashboardPage() {
           tenants={tenants}
           isLoading={isLoading}
           onToggleStatus={handleToggleStatus}
+          onEditClick={(tenant) => {
+            setEditingTenant(tenant);
+            setIsModalOpen(true);
+          }}
           isActionLoading={actionLoadingId}
-          onCreateClick={() => setIsModalOpen(true)}
+          onCreateClick={() => {
+            setEditingTenant(null);
+            setIsModalOpen(true);
+          }}
         />
       </div>
 
-      {/* Modal Desacoplado para Aprovisionar Tenant */}
+      {/* Modal Desacoplado para Aprovisionar / Editar Tenant */}
       <CreateTenantModal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingTenant(null);
+        }}
         onSubmit={handleCreateTenant}
-        isLoading={isCreatingTenant}
+        onUpdate={handleUpdateTenant}
+        initialData={editingTenant}
+        isLoading={isCreatingTenant || Boolean(actionLoadingId)}
       />
     </AdminLayout>
   );

@@ -47,6 +47,7 @@ Route::prefix('v1')->group(function () {
         Route::middleware('abac:tenant:manage')->prefix('tenants')->group(function () {
             Route::get('/', [TenantController::class, 'index']);
             Route::post('/', [TenantController::class, 'store']);
+            Route::patch('/{id}', [TenantController::class, 'update']);
             Route::patch('/{id}/status', [TenantController::class, 'updateStatus']);
         });
 

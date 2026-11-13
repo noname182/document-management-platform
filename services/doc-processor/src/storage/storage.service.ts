@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, OnModuleInit, Logger } from '@nestjs/c
 import {
   S3Client,
   PutObjectCommand,
+  DeleteObjectCommand,
   HeadBucketCommand,
   CreateBucketCommand,
 } from '@aws-sdk/client-s3';
@@ -10,12 +11,12 @@ import * as crypto from 'crypto';
 @Injectable()
 export class StorageService implements OnModuleInit {
   private readonly logger = new Logger(StorageService.name);
-  private s3Client: S3Client;
-  private quarantineBucket = process.env.MINIO_BUCKET_QUARANTINE || 'quarantine-vault';
-  private processedBucket = process.env.MINIO_BUCKET_PROCESSED || 'processed-documents';
-  private auditBucket = process.env.MINIO_BUCKET_AUDIT || 'audit-logs';
+  private readonly s3Client: S3Client;
+  private readonly quarantineBucket = process.env.MINIO_BUCKET_QUARANTINE || 'quarantine-vault';
+  private readonly processedBucket = process.env.MINIO_BUCKET_PROCESSED || 'processed-documents';
+  private readonly auditBucket = process.env.MINIO_BUCKET_AUDIT || 'audit-logs';
 
-  async onModuleInit() {
+  constructor() {
     this.s3Client = new S3Client({
       endpoint: `http://${process.env.MINIO_ENDPOINT || 'localhost'}:${process.env.MINIO_PORT || 9000}`,
       region: 'us-east-1',
@@ -23,15 +24,14 @@ export class StorageService implements OnModuleInit {
         accessKeyId: process.env.MINIO_ACCESS_KEY || 'minio_admin',
         secretAccessKey: process.env.MINIO_SECRET_KEY || 'minio_secret_key',
       },
-      forcePathStyle: true, // Obligatorio para MinIO
+      forcePathStyle: true,
     });
+  }
 
+  async onModuleInit() {
     await this.ensureBucketsExist();
   }
 
-  /**
-   * Aprovisiona los 3 buckets globales al arrancar el microservicio si aún no existen.
-   */
   private async ensureBucketsExist() {
     const buckets = [
       this.quarantineBucket,
@@ -54,16 +54,30 @@ export class StorageService implements OnModuleInit {
     }
   }
 
-  // 1. Validar Magic Bytes e Integridad SHA-256 usando importación dinámica ESM
+  private sanitizeFilename(filename: string): string {
+    return filename
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9._-]/g, '_');
+  }
+
+  // 1. Validar Magic Bytes e Integridad SHA-256
   async inspectAndHash(fileBuffer: Buffer) {
     const { fileTypeFromBuffer } = await (eval('import("file-type")') as Promise<typeof import('file-type')>);
     const fileTypeResult = await fileTypeFromBuffer(fileBuffer);
 
-    const allowedMimeTypes = ['application/pdf', 'image/png', 'image/jpeg'];
+    const allowedMimeTypes = [
+      'application/pdf',
+      'image/png',
+      'image/jpeg',
+      'video/mp4',
+      'video/quicktime',
+      'video/webm',
+    ];
 
     if (!fileTypeResult || !allowedMimeTypes.includes(fileTypeResult.mime)) {
       throw new BadRequestException(
-        `Tipo de archivo inválido o manipulado. Detectado: ${fileTypeResult?.mime || 'desconocido'}`
+        `Tipo de archivo inválido o manipulado. Detectado: ${fileTypeResult?.mime || 'desconocido'}`,
       );
     }
 
@@ -76,9 +90,10 @@ export class StorageService implements OnModuleInit {
     };
   }
 
-  // 2. Guardar en Quarantine Vault temporalmente (aislado por tenantSlug si se provee)
+  // 2. Guardar en Quarantine Vault temporalmente
   async uploadToQuarantine(filename: string, buffer: Buffer, mime: string, tenantSlug = 'default') {
-    const key = `${tenantSlug}/raw/${Date.now()}-${filename}`;
+    const safeName = this.sanitizeFilename(filename);
+    const key = `${tenantSlug}/raw/${Date.now()}-${safeName}`;
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.quarantineBucket,
@@ -92,7 +107,8 @@ export class StorageService implements OnModuleInit {
 
   // 3. Promover a Processed Documents una vez validado
   async promoteToProcessed(filename: string, buffer: Buffer, mime: string, hash: string, tenantSlug = 'default') {
-    const key = `${tenantSlug}/${new Date().getFullYear()}/${hash.substring(0, 8)}-${filename}`;
+    const safeName = this.sanitizeFilename(filename);
+    const key = `${tenantSlug}/${new Date().getFullYear()}/${hash.substring(0, 8)}-${safeName}`;
     await this.s3Client.send(
       new PutObjectCommand({
         Bucket: this.processedBucket,
@@ -105,6 +121,16 @@ export class StorageService implements OnModuleInit {
       }),
     );
     return key;
+  }
+
+  // 3b. Limpiar objeto temporal de cuarentena tras promoverlo (o si falla validación)
+  async removeFromQuarantine(quarantineKey: string) {
+    await this.s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: this.quarantineBucket,
+        Key: quarantineKey,
+      }),
+    );
   }
 
   // 4. Registrar en Audit Logs (Inmutable)

@@ -35,8 +35,13 @@ class TenantController extends Controller
     {
         $sysAdmin = $request->user();
 
+        $request->merge([
+            'name' => mb_strtoupper(trim((string) $request->input('name')), 'UTF-8'),
+            'slug' => strtolower(trim((string) $request->input('slug'))),
+        ]);
+
         $validated = $request->validate([
-            'name'           => 'required|string|max:150',
+            'name'           => 'required|string|max:150|unique:tenants,name',
             'slug'           => 'required|string|max:100|alpha_dash|unique:tenants,slug',
             'admin_name'     => 'required|string|max:150',
             'admin_email'    => 'required|email|max:255|unique:users,email',
@@ -48,7 +53,7 @@ class TenantController extends Controller
             $tenant = Tenant::create([
                 'id'     => Str::uuid()->toString(),
                 'name'   => $validated['name'],
-                'slug'   => strtolower($validated['slug']),
+                'slug'   => $validated['slug'],
                 'status' => 'ACTIVE',
             ]);
 
@@ -56,7 +61,7 @@ class TenantController extends Controller
             $tenantAdmin = User::create([
                 'id'            => Str::uuid()->toString(),
                 'tenant_id'     => $tenant->id,
-                'department_id' => null, // El TENANT_ADMIN tiene alcance transversal en su tenant
+                'department_id' => null,
                 'email'         => $validated['admin_email'],
                 'full_name'     => $validated['admin_name'],
                 'password'      => Hash::make($validated['admin_password']),
@@ -83,6 +88,35 @@ class TenantController extends Controller
                 ],
             ], 'Organización y administrador aprovisionados exitosamente.', 201);
         });
+    }
+
+    public function update(Request $request, string $id): JsonResponse
+    {
+        $tenant = Tenant::findOrFail($id);
+
+        if ($tenant->slug === 'platform-system') {
+            return $this->error('No se puede modificar la organización raíz del sistema.', 403);
+        }
+
+        $request->merge([
+            'name' => mb_strtoupper(trim((string) $request->input('name')), 'UTF-8'),
+            'slug' => strtolower(trim((string) $request->input('slug'))),
+        ]);
+
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:150', Rule::unique('tenants', 'name')->ignore($tenant->id)],
+            'slug' => ['required', 'string', 'max:100', 'alpha_dash', Rule::unique('tenants', 'slug')->ignore($tenant->id)],
+        ]);
+
+        $tenant->update([
+            'name' => $validated['name'],
+            'slug' => $validated['slug'],
+        ]);
+
+        return $this->success(
+            $tenant->loadCount(['users', 'departments', 'documents']),
+            'Organización actualizada correctamente.'
+        );
     }
 
     /**
