@@ -22,6 +22,7 @@ frontend\package.json
 frontend\postcss.config.mjs
 frontend\README.md
 frontend\tsconfig.json
+frontend\tsconfig.tsbuildinfo
 frontend\public\file.svg
 frontend\public\globe.svg
 frontend\public\next.svg
@@ -33,6 +34,7 @@ frontend\src\app\layout.tsx
 frontend\src\app\page.tsx
 frontend\src\app\admin\page.tsx
 frontend\src\app\login\page.tsx
+frontend\src\app\tenant\page.tsx
 frontend\src\features\auth\index.ts
 frontend\src\features\auth\components\LoginForm.tsx
 frontend\src\features\auth\services\auth.service.ts
@@ -43,6 +45,15 @@ frontend\src\features\system-admin\components\InfrastructureMetricsGrid.tsx
 frontend\src\features\system-admin\components\TenantsTable.tsx
 frontend\src\features\system-admin\services\system.service.ts
 frontend\src\features\system-admin\types\system.types.ts
+frontend\src\features\tenant-admin\index.ts
+frontend\src\features\tenant-admin\components\AuditLogsViewer.tsx
+frontend\src\features\tenant-admin\components\DocumentsGovernanceTable.tsx
+frontend\src\features\tenant-admin\components\ForceUnlockModal.tsx
+frontend\src\features\tenant-admin\components\OrganizationManager.tsx
+frontend\src\features\tenant-admin\components\TenantUsersTable.tsx
+frontend\src\features\tenant-admin\components\UserFormModal.tsx
+frontend\src\features\tenant-admin\services\tenant.service.ts
+frontend\src\features\tenant-admin\types\tenant.types.ts
 frontend\src\shared\index.ts
 frontend\src\shared\components\AdminLayout.tsx
 frontend\src\shared\components\ClusterStatusBar.tsx
@@ -119,6 +130,7 @@ services\core-api\database\migrations\2026_01_01_000005_create_document_categori
 services\core-api\database\migrations\2026_01_01_000006_create_documents_and_versions_tables.php
 services\core-api\database\migrations\2026_01_01_000007_create_document_audit_logs_table.php
 services\core-api\database\migrations\2026_11_07_185330_create_personal_access_tokens_table.php
+services\core-api\database\migrations\2026_11_13_000001_create_user_departments_table.php
 services\core-api\database\seeders\DatabaseSeeder.php
 services\core-api\database\seeders\RolesAndPermissionsSeeder.php
 services\core-api\database\seeders\TestScenarioSeeder.php

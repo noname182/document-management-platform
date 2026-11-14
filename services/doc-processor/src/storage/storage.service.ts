@@ -1,11 +1,19 @@
-import { Injectable, BadRequestException, OnModuleInit, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
 import {
   S3Client,
   PutObjectCommand,
+  GetObjectCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
   CreateBucketCommand,
 } from '@aws-sdk/client-s3';
+import { Readable } from 'stream';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -156,5 +164,41 @@ export class StorageService implements OnModuleInit {
     );
 
     return key;
+  }
+
+  // 5. Obtener flujo binario desde MinIO para descarga auditada
+  async getFileStream(storageKey: string, bucket?: string): Promise<{
+    stream: Readable;
+    contentType: string;
+    contentLength?: number;
+  }> {
+    const candidateBuckets = Array.from(
+      new Set([this.processedBucket, bucket].filter(Boolean) as string[]),
+    );
+
+    for (const targetBucket of candidateBuckets) {
+      try {
+        const response = await this.s3Client.send(
+          new GetObjectCommand({
+            Bucket: targetBucket,
+            Key: storageKey,
+          }),
+        );
+
+        if (response.Body) {
+          return {
+            stream: response.Body as Readable,
+            contentType: response.ContentType || 'application/octet-stream',
+            contentLength: response.ContentLength,
+          };
+        }
+      } catch {
+        // Intentar siguiente bucket candidato
+      }
+    }
+
+    throw new NotFoundException(
+      `El binario solicitado (${storageKey}) no se encuentra en el almacenamiento de objetos.`,
+    );
   }
 }

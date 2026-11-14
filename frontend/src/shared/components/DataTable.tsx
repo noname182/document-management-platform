@@ -48,7 +48,6 @@ export function DataTable<T>({
   const filteredData = useMemo(() => {
     let result = data;
 
-    // 1. Filtro por pestaña
     if (tabs && tabs.length > 0 && activeTabId !== "ALL") {
       const currentTab = tabs.find((t) => t.id === activeTabId);
       if (currentTab) {
@@ -56,7 +55,6 @@ export function DataTable<T>({
       }
     }
 
-    // 2. Filtro por término de búsqueda
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       if (searchPredicate) {
@@ -75,11 +73,9 @@ export function DataTable<T>({
 
   return (
     <div className="space-y-4">
-      {/* Barra de Controles: Búsqueda, Pestañas y Acciones */}
       {(searchPredicate || tabs || headerActions) && (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="flex flex-1 flex-wrap items-center gap-3">
-            {/* Buscador */}
             {searchPredicate && (
               <div className="relative flex-1 min-w-[200px] max-w-sm">
                 <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
@@ -107,9 +103,8 @@ export function DataTable<T>({
               </div>
             )}
 
-            {/* Selector de Pestañas / Tabs */}
             {tabs && tabs.length > 0 && (
-              <div className="flex items-center rounded-xl bg-slate-900 border border-slate-800 p-1">
+              <div className="flex flex-wrap items-center rounded-xl bg-slate-900 border border-slate-800 p-1">
                 {tabs.map((tab) => {
                   const isActive = activeTabId === tab.id;
                   return (
@@ -117,7 +112,7 @@ export function DataTable<T>({
                       key={tab.id}
                       type="button"
                       onClick={() => setActiveTabId(tab.id)}
-                      className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
                         isActive
                           ? "bg-slate-800 text-white shadow-xs"
                           : "text-slate-400 hover:text-white"
@@ -136,12 +131,10 @@ export function DataTable<T>({
             )}
           </div>
 
-          {/* Acciones de Encabezado (ej. botones primarios) */}
           {headerActions && <div className="shrink-0">{headerActions}</div>}
         </div>
       )}
 
-      {/* Contenedor de la Tabla */}
       <div className="rounded-2xl border border-slate-800/80 bg-slate-900/60 overflow-hidden shadow-xl backdrop-blur-md">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs text-slate-300">
@@ -158,7 +151,7 @@ export function DataTable<T>({
                     <th
                       key={idx}
                       scope="col"
-                      className={`px-5 py-3.5 ${alignClass} ${col.className || ""}`}
+                      className={`px-3.5 py-3 ${alignClass} ${col.className || ""}`}
                     >
                       {col.header}
                     </th>
@@ -171,7 +164,7 @@ export function DataTable<T>({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-5 py-12 text-center text-slate-400"
+                    className="px-4 py-12 text-center text-slate-400"
                   >
                     <div className="inline-flex items-center gap-2 text-xs">
                       <svg
@@ -201,7 +194,7 @@ export function DataTable<T>({
                 <tr>
                   <td
                     colSpan={columns.length}
-                    className="px-5 py-12 text-center text-slate-400"
+                    className="px-4 py-12 text-center text-slate-400"
                   >
                     <p className="text-sm font-medium text-slate-300">
                       {emptyMessage}
@@ -229,7 +222,7 @@ export function DataTable<T>({
                       return (
                         <td
                           key={idx}
-                          className={`px-5 py-4 ${alignClass} ${col.className || ""}`}
+                          className={`px-3.5 py-3.5 ${alignClass} ${col.className || ""}`}
                         >
                           {col.render
                             ? col.render(item)

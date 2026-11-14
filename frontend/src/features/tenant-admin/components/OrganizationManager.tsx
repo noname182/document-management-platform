@@ -643,7 +643,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
         title={
           editingDept ? "Editar Departamento" : "Nuevo Departamento Organizacional"
         }
-        subtitle="Los departamentos delimitan el acceso y visibilidad de los expedientes bajo control ABAC."
+        subtitle="Los departamentos delimitan el acceso y visibilidad de los expedientes."
         maxWidth="md"
       >
         <form onSubmit={handleSubmitDept} className="space-y-4 pt-2">

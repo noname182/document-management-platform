@@ -1,11 +1,17 @@
 import {
   Controller,
   Post,
+  Get,
+  Query,
+  Res,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  StreamableFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import type { Response } from 'express';
+import 'multer';
 import { StorageService } from './storage.service';
 
 @Controller('documents')
@@ -55,5 +61,28 @@ export class StorageController {
         auditLogRecord: auditKey,
       },
     };
+  }
+
+  @Get('download')
+  async downloadDocument(
+    @Query('key') key: string,
+    @Query('bucket') bucket: string | undefined,
+    @Query('filename') filename: string | undefined,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    if (!key) {
+      throw new BadRequestException('El parámetro "key" es obligatorio');
+    }
+
+    const fileData = await this.storageService.getFileStream(key, bucket);
+    const safeFilename = (filename || key.split('/').pop() || 'documento').replace(/"/g, '');
+
+    res.set({
+      'Content-Type': fileData.contentType,
+      'Content-Disposition': `attachment; filename="${safeFilename}"`,
+      ...(fileData.contentLength ? { 'Content-Length': String(fileData.contentLength) } : {}),
+    });
+
+    return new StreamableFile(fileData.stream);
   }
 }

@@ -33,10 +33,12 @@ Route::prefix('v1')->group(function () {
         });
 
         Route::prefix('documents')->group(function () {
-            // Lectura
+            // Lectura y descarga de documentos (VIEWER, EDITOR, APPROVER, TENANT_ADMIN, SYSTEM_ADMIN)
             Route::get('/', [DocumentController::class, 'index'])->middleware('abac:doc:read');
             Route::get('/{id}', [DocumentController::class, 'show'])->middleware('abac:doc:read');
             Route::get('/{id}/versions', [DocumentController::class, 'versions'])->middleware('abac:doc:read');
+            Route::get('/{id}/versions/{versionId}/download', [DocumentController::class, 'download'])
+                ->middleware('abac:doc:download');
 
             // Creación
             Route::post('/', [DocumentController::class, 'store'])->middleware('abac:doc:create');

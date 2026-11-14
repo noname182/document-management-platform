@@ -28,26 +28,21 @@ type ActiveTab = "ORGANIZATION" | "USERS" | "DOCUMENTS" | "AUDIT";
 export default function TenantAdminDashboardPage() {
   const router = useRouter();
 
-  // Control de Acceso y Sesión
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
-  // Pestaña Principal Activa
   const [activeTab, setActiveTab] = useState<ActiveTab>("ORGANIZATION");
 
-  // Estados de Datos
   const [departments, setDepartments] = useState<DepartmentItem[]>([]);
   const [categories, setCategories] = useState<DocumentCategoryItem[]>([]);
   const [users, setUsers] = useState<TenantUserItem[]>([]);
   const [documents, setDocuments] = useState<TenantDocumentItem[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
-  // Estados de Carga
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  // Modales y Acciones
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<TenantUserItem | null>(null);
   const [isSubmittingUser, setIsSubmittingUser] = useState(false);
@@ -58,38 +53,21 @@ export default function TenantAdminDashboardPage() {
   );
   const [isSubmittingUnlock, setIsSubmittingUnlock] = useState(false);
 
-  // Feedback Notification Banner
   const [feedback, setFeedback] = useState<{
     message: string;
     type: "success" | "error";
   } | null>(null);
 
-  // Carga completa de datos del Tenant
   const reloadData = useCallback(async () => {
     setIsRefreshing(true);
     try {
       const [deptRes, catRes, usersRes, docsRes, auditRes] =
         await Promise.all([
-          tenantService.getDepartments().catch((err) => {
-            console.error("Error al obtener departamentos:", err);
-            return [] as DepartmentItem[];
-          }),
-          tenantService.getCategories().catch((err) => {
-            console.error("Error al obtener categorías:", err);
-            return [] as DocumentCategoryItem[];
-          }),
-          tenantService.getUsers().catch((err) => {
-            console.error("Error al obtener usuarios:", err);
-            return { data: [] as TenantUserItem[] };
-          }),
-          tenantService.getDocuments().catch((err) => {
-            console.error("Error al obtener documentos:", err);
-            return { data: [] as TenantDocumentItem[] };
-          }),
-          tenantService.getAuditLogs().catch((err) => {
-            console.error("Error al obtener bitácora forense:", err);
-            return { data: [] as AuditLogItem[] };
-          }),
+          tenantService.getDepartments().catch(() => [] as DepartmentItem[]),
+          tenantService.getCategories().catch(() => [] as DocumentCategoryItem[]),
+          tenantService.getUsers().catch(() => ({ data: [] as TenantUserItem[] })),
+          tenantService.getDocuments().catch(() => ({ data: [] as TenantDocumentItem[] })),
+          tenantService.getAuditLogs().catch(() => ({ data: [] as AuditLogItem[] })),
         ]);
 
       setDepartments(deptRes);
@@ -102,7 +80,6 @@ export default function TenantAdminDashboardPage() {
     }
   }, []);
 
-  // 1. Inicialización y Validación RBAC
   useEffect(() => {
     let isMounted = true;
 
@@ -165,7 +142,6 @@ export default function TenantAdminDashboardPage() {
     };
   }, [router]);
 
-  // Manejadores de Gestión de Usuarios
   const handleCreateUser = () => {
     setEditingUser(null);
     setIsUserModalOpen(true);
@@ -260,7 +236,6 @@ export default function TenantAdminDashboardPage() {
     }
   };
 
-  // Manejador de Liberación Forzada de Candados
   const handleOpenForceUnlock = (doc: TenantDocumentItem) => {
     setUnlockingDoc(doc);
     setIsUnlockModalOpen(true);
@@ -291,7 +266,6 @@ export default function TenantAdminDashboardPage() {
     }
   };
 
-  // Cálculo de KPIs
   const activeUsersCount = useMemo(
     () => users.filter((u) => u.status === "ACTIVE").length,
     [users]
@@ -308,7 +282,6 @@ export default function TenantAdminDashboardPage() {
     [activeUsersCount, users.length]
   );
 
-  // Navegación de barra lateral personalizada para TENANT_ADMIN
   const navItems: NavItem[] = useMemo(() => {
     const items: NavItem[] = [
       {
@@ -379,58 +352,20 @@ export default function TenantAdminDashboardPage() {
     return items;
   }, [currentUser]);
 
-  // Pantalla de Carga
   if (isAuthorized === null || (isAuthorized && isLoading)) {
     return (
       <div className="min-h-screen bg-[#090D16] flex items-center justify-center text-slate-400">
-        <div className="flex items-center gap-3">
-          <svg
-            className="w-5 h-5 animate-spin text-indigo-500"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            />
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            />
-          </svg>
-          <span className="text-sm font-medium">
-            Cargando consola organizacional...
-          </span>
-        </div>
+        <span className="text-sm font-medium">
+          Cargando consola organizacional...
+        </span>
       </div>
     );
   }
 
-  // Pantalla de Acceso Restringido
   if (isAuthorized === false) {
     return (
       <div className="min-h-screen bg-[#090D16] flex items-center justify-center p-6 text-slate-100">
         <div className="max-w-md w-full p-8 rounded-2xl bg-slate-900 border border-slate-800 text-center space-y-4 shadow-2xl">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center">
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
           <h2 className="text-lg font-bold text-white">
             Acceso Restringido a la Organización
           </h2>
@@ -464,7 +399,6 @@ export default function TenantAdminDashboardPage() {
       pageTitle="Consola de Administración Organizacional"
       navItems={navItems}
     >
-      {/* Banner de Feedback Global */}
       {feedback && (
         <div
           className={`flex items-center justify-between p-4 rounded-xl text-xs font-medium border transition-all animate-fadeIn ${
@@ -485,52 +419,40 @@ export default function TenantAdminDashboardPage() {
             onClick={() => setFeedback(null)}
             className="text-slate-400 hover:text-white p-1 rounded-md"
           >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
+            ✕
           </button>
         </div>
       )}
 
-      {/* Grid Superior de KPIs Corporativos */}
+      {/* Grid Superior de KPIs Corporativos (Títulos cortos sin truncamiento) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
-          label="USUARIOS ACTIVOS"
+          label="USUARIOS"
           value={activeUsersCount}
-          sublabel={`${users.length} usuarios registrados`}
+          sublabel={`${users.length} registrados en total`}
           badge={`${activePercentage}% activos`}
           accentColor="indigo"
           progress={activePercentage}
         />
         <KpiCard
-          label="DEPARTAMENTOS"
+          label="ÁREAS"
           value={departments.length}
           sublabel={`${categories.length} categorías documentales`}
           badge="Estructura"
           accentColor="slate"
         />
         <KpiCard
-          label="EXPEDIENTES EN BÓVEDA"
+          label="EXPEDIENTES"
           value={documents.length}
           sublabel={`${documents.filter((d) => !d.is_locked).length} disponibles`}
           badge="Bóveda"
           accentColor="emerald"
         />
         <KpiCard
-          label="CANDADOS ACTIVOS"
+          label="CANDADOS"
           value={lockedDocsCount}
           sublabel="En edición concurrente"
-          badge={lockedDocsCount > 0 ? "Atención" : "Estable"}
+          badge={lockedDocsCount > 0 ? "En uso" : "Libre"}
           accentColor="amber"
           progress={
             documents.length > 0
@@ -544,7 +466,7 @@ export default function TenantAdminDashboardPage() {
       <div className="space-y-4 pt-2">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            {/* Pestaña 1: Estructura Organizacional */}
+            {/* Pestaña 1: Estructura Organizacional (muestra solo departamentos) */}
             <button
               type="button"
               onClick={() => setActiveTab("ORGANIZATION")}
@@ -575,7 +497,7 @@ export default function TenantAdminDashboardPage() {
                     : "bg-slate-800 text-slate-400"
                 }`}
               >
-                {departments.length + categories.length}
+                {departments.length}
               </span>
             </button>
 
@@ -681,7 +603,6 @@ export default function TenantAdminDashboardPage() {
             </button>
           </div>
 
-          {/* Botón Refrescar Datos */}
           <button
             type="button"
             onClick={reloadData}
@@ -705,11 +626,6 @@ export default function TenantAdminDashboardPage() {
           </button>
         </div>
 
-        {/* ============================================================== */}
-        {/* Renderizado de Vistas según Pestaña Activa */}
-        {/* ============================================================== */}
-
-        {/* 1. Estructura Organizacional */}
         {activeTab === "ORGANIZATION" && (
           <div className="space-y-4 animate-fadeIn">
             <div>
@@ -730,7 +646,6 @@ export default function TenantAdminDashboardPage() {
           </div>
         )}
 
-        {/* 2. Personal y Roles */}
         {activeTab === "USERS" && (
           <div className="space-y-4 animate-fadeIn">
             <div>
@@ -754,7 +669,6 @@ export default function TenantAdminDashboardPage() {
           </div>
         )}
 
-        {/* 3. Documentos y Candados */}
         {activeTab === "DOCUMENTS" && (
           <div className="space-y-4 animate-fadeIn">
             <div>
@@ -774,7 +688,6 @@ export default function TenantAdminDashboardPage() {
           </div>
         )}
 
-        {/* 4. Bitácora Forense */}
         {activeTab === "AUDIT" && (
           <div className="space-y-4 animate-fadeIn">
             <div>
@@ -791,11 +704,6 @@ export default function TenantAdminDashboardPage() {
         )}
       </div>
 
-      {/* ============================================================== */}
-      {/* Modales Desacoplados */}
-      {/* ============================================================== */}
-
-      {/* Modal: Crear / Editar Usuario */}
       <UserFormModal
         isOpen={isUserModalOpen}
         onClose={() => {
@@ -809,7 +717,6 @@ export default function TenantAdminDashboardPage() {
         isLoading={isSubmittingUser}
       />
 
-      {/* Modal: Forzar Desbloqueo de Candado */}
       <ForceUnlockModal
         isOpen={isUnlockModalOpen}
         onClose={() => {

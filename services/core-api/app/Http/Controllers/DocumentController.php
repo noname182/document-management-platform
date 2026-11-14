@@ -8,6 +8,7 @@ use App\Models\DocumentVersion;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
 class DocumentController extends Controller
@@ -306,7 +307,7 @@ class DocumentController extends Controller
                 'document_id'       => $document->id,
                 'version_number'    => $nextVersionNumber,
                 'status'            => 'ACTIVE',
-                'storage_bucket'    => $validated['storage_bucket'] ?? 'documents-vault',
+                'storage_bucket'    => $validated['storage_bucket'] ?? 'processed-documents',
                 'storage_key'       => $validated['storage_key'],
                 'original_filename' => $validated['original_filename'],
                 'mime_type'         => $validated['mime_type'],
@@ -396,4 +397,79 @@ class DocumentController extends Controller
         );
     }
 
+    /**
+     * Descarga auditada del binario físico de una versión específica desde MinIO vía doc-processor.
+     */
+    public function download(Request $request, string $id, string $versionId)
+    {
+        $user = $request->user();
+
+        $document = Document::with('category')
+            ->where('tenant_id', $user->tenant_id)
+            ->findOrFail($id);
+
+        // Validar aislamiento ABAC por departamento
+        $isAdmin = $user->hasRole('SYSTEM_ADMIN') || $user->hasRole('TENANT_ADMIN');
+        $allowedDeptIds = $user->departments()->pluck('departments.id')->toArray();
+
+        if (! $isAdmin && ! ($user->hasRole('APPROVER') && empty($allowedDeptIds))) {
+            $docDeptId = $document->category?->department_id;
+            if (! $docDeptId || ! in_array($docDeptId, $allowedDeptIds, true)) {
+                return $this->error('No tiene autorización departamental para descargar este expediente.', 403);
+            }
+        }
+
+        $version = DocumentVersion::where('document_id', $document->id)
+            ->where('id', $versionId)
+            ->firstOrFail();
+
+        $processorUrl = rtrim(env('DOC_PROCESSOR_URL', 'http://doc-processor:3001'), '/');
+
+        try {
+            $upstream = Http::timeout(30)->get("{$processorUrl}/documents/download", [
+                'key'      => $version->storage_key,
+                'bucket'   => $version->storage_bucket,
+                'filename' => $version->original_filename,
+            ]);
+        } catch (\Throwable $e) {
+            return $this->error('No se pudo conectar con el servicio de almacenamiento de objetos.', 502);
+        }
+
+        if ($upstream->status() === 404) {
+            return $this->error(
+                'El archivo físico no existe en MinIO (si es un registro de prueba del seeder, suba un archivo real primero).',
+                404
+            );
+        }
+
+        if (! $upstream->successful()) {
+            return $this->error('Error al recuperar el archivo desde MinIO.', 502);
+        }
+
+        // Registrar evento de descarga en la bitácora forense inmutable
+        DocumentAuditLog::create([
+            'id'          => Str::uuid()->toString(),
+            'tenant_id'   => $document->tenant_id,
+            'document_id' => $document->id,
+            'version_id'  => $version->id,
+            'user_id'     => $user->id,
+            'action'      => 'DOCUMENT_DOWNLOADED',
+            'sha256_hash' => $version->sha256_hash,
+            'ip_address'  => $request->ip() ?? '127.0.0.1',
+            'user_agent'  => $request->userAgent(),
+            'details'     => [
+                'version_number'    => $version->version_number,
+                'original_filename' => $version->original_filename,
+            ],
+            'created_at'  => now(),
+        ]);
+
+        $filename = str_replace('"', '', $version->original_filename);
+
+        return response($upstream->body(), 200, [
+            'Content-Type'        => $version->mime_type ?: 'application/octet-stream',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+            'Content-Length'      => strlen($upstream->body()),
+        ]);
+    }
 }
