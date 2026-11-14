@@ -18,15 +18,23 @@ export default function LoginPage() {
     try {
       const response = await authService.login(credentials);
       const user = response.user;
+
       const isSystemAdmin =
         user.roles.includes("SYSTEM_ADMIN") ||
         user.permissions.includes("tenant:manage") ||
         user.permissions.includes("system:metrics");
 
+      const isTenantAdmin =
+        user.roles.includes("TENANT_ADMIN") ||
+        user.permissions.includes("dept:manage") ||
+        user.permissions.includes("user:manage");
+
       if (isSystemAdmin) {
         router.push("/admin");
+      } else if (isTenantAdmin) {
+        router.push("/tenant");
       } else {
-        router.push("/");
+        router.push("/documents");
       }
     } catch (error) {
       if (error instanceof AuthError) {

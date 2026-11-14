@@ -106,8 +106,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
-      NEXT_PUBLIC_PROCESSOR_URL: http://localhost:3001
+      #NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+      NEXT_PUBLIC_API_URL: http://192.168.1.17:8000/api/v1
+      #NEXT_PUBLIC_PROCESSOR_URL: http://localhost:3001
+      NEXT_PUBLIC_PROCESSOR_URL: http://192.168.1.17:3001
     depends_on:
       - core-api
       - doc-processor

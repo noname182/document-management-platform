@@ -1,11 +1,13 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DocumentController;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\SystemController;
 use App\Http\Controllers\TenantController;
+use App\Http\Controllers\UserController;
+use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // Rutas públicas
@@ -15,6 +17,20 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        // Catálogos de Organización (Lectura general + Gestión con dept:manage)
+        Route::get('/departments', [OrganizationController::class, 'listDepartments']);
+        Route::get('/categories', [OrganizationController::class, 'listCategories']);
+
+        Route::middleware('abac:dept:manage')->group(function () {
+            Route::post('/departments', [OrganizationController::class, 'storeDepartment']);
+            Route::patch('/departments/{id}', [OrganizationController::class, 'updateDepartment']);
+            Route::delete('/departments/{id}', [OrganizationController::class, 'destroyDepartment']);
+
+            Route::post('/categories', [OrganizationController::class, 'storeCategory']);
+            Route::patch('/categories/{id}', [OrganizationController::class, 'updateCategory']);
+            Route::delete('/categories/{id}', [OrganizationController::class, 'destroyCategory']);
+        });
 
         Route::prefix('documents')->group(function () {
             // Lectura
@@ -27,14 +43,18 @@ Route::prefix('v1')->group(function () {
 
             // Concurrencia y Control de Candados
             Route::post('/{id}/checkout', [DocumentController::class, 'checkout'])->middleware('abac:doc:checkout');
+            Route::post('/{id}/checkin', [DocumentController::class, 'checkin'])->middleware('abac:doc:checkin');
             Route::post('/{id}/discard-checkout', [DocumentController::class, 'discardCheckout'])->middleware('abac:doc:discard_checkout');
+            Route::post('/{id}/force-unlock', [DocumentController::class, 'forceUnlock'])->middleware('abac:doc:force_unlock');
 
             // Gobernanza Forense: Forward-Rollback
             Route::post('/{id}/rollback', [DocumentController::class, 'rollback'])->middleware('abac:doc:rollback');
-
-            Route::post('/{id}/checkin', [DocumentController::class, 'checkin'])->middleware('abac:doc:checkin');
         });
 
+        // Auditoría Forense (TENANT_ADMIN y APPROVER)
+        Route::middleware('abac:audit:read')->get('/audit-logs', [AuditLogController::class, 'index']);
+
+        // Gestión de Usuarios del Tenant
         Route::middleware('abac:user:manage')->prefix('users')->group(function () {
             Route::get('/', [UserController::class, 'index']);
             Route::post('/', [UserController::class, 'store']);

@@ -328,4 +328,49 @@ class DocumentController extends Controller
             );
         });
     }
+
+    /**
+     * Rompe a la fuerza el bloqueo de edición de un documento (exclusivo TENANT_ADMIN / SYSTEM_ADMIN).
+     */
+    public function forceUnlock(Request $request, string $id): JsonResponse
+    {
+        $admin = $request->user();
+        $document = Document::where('tenant_id', $admin->tenant_id)->findOrFail($id);
+
+        if (!$document->is_locked) {
+            return $this->error('El documento no se encuentra bloqueado actualmente.', 422);
+        }
+
+        $previousLockerId = $document->locked_by_user_id;
+
+        DB::transaction(function () use ($request, $admin, $document, $previousLockerId) {
+            $document->update([
+                'is_locked'         => false,
+                'locked_by_user_id' => null,
+                'locked_at'         => null,
+            ]);
+
+            DocumentAuditLog::create([
+                'id'          => Str::uuid()->toString(),
+                'tenant_id'   => $admin->tenant_id,
+                'document_id' => $document->id,
+                'version_id'  => $document->current_version_id,
+                'user_id'     => $admin->id,
+                'action'      => 'FORCE_UNLOCKED',
+                'ip_address'  => $request->ip() ?? '127.0.0.1',
+                'user_agent'  => $request->userAgent(),
+                'details'     => [
+                    'previous_locked_by' => $previousLockerId,
+                    'reason'             => $request->input('reason', 'Desbloqueo administrativo forzado'),
+                ],
+                'created_at'  => now(),
+            ]);
+        });
+
+        return $this->success(
+            $document->fresh(),
+            'Candado de edición liberado forzosamente y registrado en auditoría.'
+        );
+    }
+
 }

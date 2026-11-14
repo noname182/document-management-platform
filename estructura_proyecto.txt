@@ -43,7 +43,14 @@ frontend\src\features\system-admin\components\InfrastructureMetricsGrid.tsx
 frontend\src\features\system-admin\components\TenantsTable.tsx
 frontend\src\features\system-admin\services\system.service.ts
 frontend\src\features\system-admin\types\system.types.ts
+frontend\src\shared\index.ts
 frontend\src\shared\components\AdminLayout.tsx
+frontend\src\shared\components\ClusterStatusBar.tsx
+frontend\src\shared\components\DataTable.tsx
+frontend\src\shared\components\KpiCard.tsx
+frontend\src\shared\components\Modal.tsx
+frontend\src\shared\lib\apiClient.ts
+frontend\src\shared\lib\tokenStorage.ts
 services\core-api\.editorconfig
 services\core-api\.env
 services\core-api\.env.example
@@ -60,9 +67,11 @@ services\core-api\postcss.config.js
 services\core-api\README.md
 services\core-api\tailwind.config.js
 services\core-api\vite.config.js
+services\core-api\app\Http\Controllers\AuditLogController.php
 services\core-api\app\Http\Controllers\AuthController.php
 services\core-api\app\Http\Controllers\Controller.php
 services\core-api\app\Http\Controllers\DocumentController.php
+services\core-api\app\Http\Controllers\OrganizationController.php
 services\core-api\app\Http\Controllers\SystemController.php
 services\core-api\app\Http\Controllers\TenantController.php
 services\core-api\app\Http\Controllers\UserController.php
@@ -132,6 +141,7 @@ services\core-api\storage\logs\laravel.log
 services\core-api\tests\TestCase.php
 services\core-api\tests\Feature\DocumentSecurityAndConcurrencyTest.php
 services\core-api\tests\Feature\ExampleTest.php
+services\core-api\tests\Feature\OrganizationAndAuditManagementTest.php
 services\core-api\tests\Feature\TenantAndSystemManagementTest.php
 services\core-api\tests\Feature\UserManagementTest.php
 services\core-api\tests\Unit\ExampleTest.php
