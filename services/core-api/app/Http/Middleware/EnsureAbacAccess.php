@@ -33,39 +33,39 @@ class EnsureAbacAccess
             return $next($request);
         }
 
-        // APPROVER opera a nivel organizacional para revisión y auditoría
-        if ($user->hasRole('APPROVER')) {
+        // 2. Verificación Contextual ABAC N:M (user_departments):
+        // Si el usuario tiene departamentos asignados, el recurso debe pertenecer a alguno de ellos.
+        // (Los APPROVER transversales sin departamentos asignados operan sobre toda la organización).
+        $userDepartmentIds = $user->departments()->pluck('departments.id')->toArray();
+
+        if ($user->hasRole('APPROVER') && empty($userDepartmentIds)) {
             return $next($request);
         }
 
-        // 2. Verificación Contextual ABAC para EDITORES:
-        // user.department_id == category.department_id
-        if ($user->hasRole('EDITOR')) {
-            $departmentIdTarget = null;
+        $departmentIdTarget = null;
 
-            // Caso A: Creación de documento (el payload incluye category_id)
-            if ($request->has('category_id')) {
-                $category = DocumentCategory::find($request->input('category_id'));
-                $departmentIdTarget = $category?->department_id;
-            }
+        // Caso A: Creación de documento (el payload incluye category_id)
+        if ($request->has('category_id')) {
+            $category = DocumentCategory::find($request->input('category_id'));
+            $departmentIdTarget = $category?->department_id;
+        }
 
-            // Caso B: Operación sobre documento existente (ruta contiene el ID del documento)
-            $documentRouteParam = $request->route('document') ?? $request->route('id');
-            if ($documentRouteParam) {
-                $doc = $documentRouteParam instanceof Document 
-                    ? $documentRouteParam 
-                    : Document::with('category')->find($documentRouteParam);
+        // Caso B: Operación sobre documento existente (ruta contiene el ID del documento)
+        $documentRouteParam = $request->route('document') ?? $request->route('id');
+        if ($documentRouteParam) {
+            $doc = $documentRouteParam instanceof Document
+                ? $documentRouteParam
+                : Document::with('category')->find($documentRouteParam);
 
-                $departmentIdTarget = $doc?->category?->department_id;
-            }
+            $departmentIdTarget = $doc?->category?->department_id;
+        }
 
-            // Si el recurso tiene departamento asignado y no coincide con el del editor
-            if ($departmentIdTarget && $user->department_id !== $departmentIdTarget) {
-                return $this->error(
-                    'Violación de política ABAC: No tiene autorización sobre recursos de este departamento.',
-                    403
-                );
-            }
+        // Si el recurso tiene departamento asignado y el usuario no pertenece a él
+        if ($departmentIdTarget && ! in_array($departmentIdTarget, $userDepartmentIds, true)) {
+            return $this->error(
+                'Violación de política ABAC: No tiene autorización sobre recursos de este departamento.',
+                403
+            );
         }
 
         return $next($request);

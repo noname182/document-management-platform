@@ -17,9 +17,32 @@ class DocumentController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $documents = Document::with(['category', 'currentVersion', 'lockedBy'])
-            ->orderBy('created_at', 'desc')
-            ->paginate(15);
+        $user = $request->user();
+        $query = Document::with(['category.department:id,name', 'currentVersion', 'lockedBy:id,full_name,email']);
+
+        $isAdmin = $user->hasRole('SYSTEM_ADMIN') || $user->hasRole('TENANT_ADMIN');
+        $allowedDeptIds = $user->departments()->pluck('departments.id')->toArray();
+
+        // Si no es admin y no es un APPROVER transversal sin departamentos, restringir a sus áreas asignadas
+        if (! $isAdmin && ! ($user->hasRole('APPROVER') && empty($allowedDeptIds))) {
+            $query->whereHas('category', function ($q) use ($allowedDeptIds) {
+                $q->whereIn('department_id', $allowedDeptIds);
+            });
+        }
+
+        // Filtros opcionales desde el frontend (por departamento específico o categoría)
+        if ($request->filled('department_id')) {
+            $deptFilter = $request->input('department_id');
+            $query->whereHas('category', function ($q) use ($deptFilter) {
+                $q->where('department_id', $deptFilter);
+            });
+        }
+
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->input('category_id'));
+        }
+
+        $documents = $query->orderBy('created_at', 'desc')->paginate(15);
 
         return $this->success($documents);
     }

@@ -120,7 +120,7 @@ class TenantAndSystemManagementTest extends TestCase
             ->firstOrFail();
 
         $this->assertEquals($nuevoTenant->id, $nuevoAdmin->tenant_id);
-        $this->assertNull($nuevoAdmin->department_id);
+        $this->assertCount(0, $nuevoAdmin->departments);
 
         $this->assertDatabaseHas('user_roles', [
             'user_id'     => $nuevoAdmin->id,

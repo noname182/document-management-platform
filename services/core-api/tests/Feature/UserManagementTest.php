@@ -17,6 +17,7 @@ class UserManagementTest extends TestCase
     private User $cirujanoClinica;
     private User $adminBufete;
     private Department $deptCirugia;
+    private Department $deptRadiologia;
     private Department $deptLitigio;
 
     protected function setUp(): void
@@ -31,6 +32,10 @@ class UserManagementTest extends TestCase
         // Departamentos reales de cada organización
         $this->deptCirugia = Department::where('tenant_id', $this->adminClinica->tenant_id)
             ->where('name', 'Cirugía')
+            ->firstOrFail();
+
+        $this->deptRadiologia = Department::where('tenant_id', $this->adminClinica->tenant_id)
+            ->where('name', 'Radiología')
             ->firstOrFail();
 
         $this->deptLitigio = Department::where('tenant_id', $this->adminBufete->tenant_id)
@@ -64,25 +69,25 @@ class UserManagementTest extends TestCase
         $this->getJson('/api/v1/users')->assertStatus(403);
 
         $this->postJson('/api/v1/users', [
-            'full_name'     => 'Usuario No Autorizado',
-            'email'         => 'noauth@clinica.test',
-            'password'      => 'password123',
-            'role_id'       => 'VIEWER',
-            'department_id' => $this->deptCirugia->id,
+            'full_name'      => 'Usuario No Autorizado',
+            'email'          => 'noauth@clinica.test',
+            'password'       => 'password123',
+            'role_ids'       => ['VIEWER'],
+            'department_ids' => [$this->deptCirugia->id],
         ])->assertStatus(403);
     }
 
     #[Test]
-    public function un_tenant_admin_puede_crear_un_editor_con_departamento_valido(): void
+    public function un_tenant_admin_puede_crear_un_editor_con_multiples_departamentos_y_roles(): void
     {
         Sanctum::actingAs($this->adminClinica);
 
         $payload = [
-            'full_name'     => 'Dr. Mateo Siles Prueba',
-            'email'         => 'mateo.siles.test@clinica.com',
-            'password'      => 'password123',
-            'role_id'       => 'EDITOR',
-            'department_id' => $this->deptCirugia->id,
+            'full_name'      => 'Dr. Mateo Siles Prueba',
+            'email'          => 'mateo.siles.test@clinica.com',
+            'password'       => 'password123',
+            'role_ids'       => ['EDITOR', 'APPROVER'],
+            'department_ids' => [$this->deptCirugia->id, $this->deptRadiologia->id],
         ];
 
         $response = $this->postJson('/api/v1/users', $payload);
@@ -94,16 +99,35 @@ class UserManagementTest extends TestCase
                      'status'    => 'ACTIVE',
                  ]);
 
+        $userId = $response->json('data.id');
+
         $this->assertDatabaseHas('users', [
-            'email'         => 'mateo.siles.test@clinica.com',
-            'tenant_id'     => $this->adminClinica->tenant_id,
-            'department_id' => $this->deptCirugia->id,
+            'id'        => $userId,
+            'email'     => 'mateo.siles.test@clinica.com',
+            'tenant_id' => $this->adminClinica->tenant_id,
         ]);
 
-        $userId = $response->json('data.id');
+        $this->assertDatabaseHas('user_departments', [
+            'user_id'       => $userId,
+            'department_id' => $this->deptCirugia->id,
+            'is_primary'    => true,
+        ]);
+
+        $this->assertDatabaseHas('user_departments', [
+            'user_id'       => $userId,
+            'department_id' => $this->deptRadiologia->id,
+            'is_primary'    => false,
+        ]);
+
         $this->assertDatabaseHas('user_roles', [
             'user_id'   => $userId,
             'role_id'   => 'EDITOR',
+            'tenant_id' => $this->adminClinica->tenant_id,
+        ]);
+
+        $this->assertDatabaseHas('user_roles', [
+            'user_id'   => $userId,
+            'role_id'   => 'APPROVER',
             'tenant_id' => $this->adminClinica->tenant_id,
         ]);
     }
@@ -117,7 +141,7 @@ class UserManagementTest extends TestCase
             'full_name' => 'Editor Sin Area',
             'email'     => 'sin.area@clinica.com',
             'password'  => 'password123',
-            'role_id'   => 'EDITOR',
+            'role_ids'  => ['EDITOR'],
         ]);
 
         $response->assertStatus(422)
@@ -131,15 +155,15 @@ class UserManagementTest extends TestCase
 
         // Intenta asignar el departamento 'Litigio' que pertenece al Bufete Baldivieso
         $response = $this->postJson('/api/v1/users', [
-            'full_name'     => 'Usuario Cruzado',
-            'email'         => 'cruzado@clinica.com',
-            'password'      => 'password123',
-            'role_id'       => 'EDITOR',
-            'department_id' => $this->deptLitigio->id,
+            'full_name'      => 'Usuario Cruzado',
+            'email'          => 'cruzado@clinica.com',
+            'password'       => 'password123',
+            'role_ids'       => ['EDITOR'],
+            'department_ids' => [$this->deptLitigio->id],
         ]);
 
         $response->assertStatus(422)
-                 ->assertJsonValidationErrors(['department_id']);
+                 ->assertJsonValidationErrors(['department_ids.0']);
     }
 
     #[Test]
@@ -151,11 +175,11 @@ class UserManagementTest extends TestCase
             'full_name' => 'Intento Super Admin',
             'email'     => 'hacker@clinica.com',
             'password'  => 'password123',
-            'role_id'   => 'SYSTEM_ADMIN',
+            'role_ids'  => ['SYSTEM_ADMIN'],
         ]);
 
         $response->assertStatus(422)
-                 ->assertJsonValidationErrors(['role_id']);
+                 ->assertJsonValidationErrors(['role_ids.0']);
     }
 
     #[Test]
@@ -165,7 +189,7 @@ class UserManagementTest extends TestCase
 
         // Actualizar rol de cirujano a APPROVER
         $updateRes = $this->patchJson("/api/v1/users/{$this->cirujanoClinica->id}", [
-            'role_id' => 'APPROVER',
+            'role_ids' => ['APPROVER'],
         ]);
 
         $updateRes->assertStatus(200);

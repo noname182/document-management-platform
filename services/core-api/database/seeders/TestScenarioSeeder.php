@@ -224,21 +224,56 @@ class TestScenarioSeeder extends Seeder
             ['id' => $userViewerId24, 'tenant_id' => $tenantBancoId, 'dept' => $deptRecursosHumanosId, 'email' => 'mirtha.escalante.view@gmail.com', 'name' => 'Mirtha Escalante Vallejos', 'role' => 'VIEWER'],
         ];
 
-        // 3. Inserción Masiva de Usuarios
+        // 3. Inserción Masiva de Usuarios (sin department_id)
         $usersInsert = array_map(function ($u) use ($defaultPassword) {
             return [
-                'id'            => $u['id'],
-                'tenant_id'     => $u['tenant_id'],
-                'department_id' => $u['dept'],
-                'email'         => $u['email'],
-                'full_name'     => $u['name'],
-                'password'      => $defaultPassword,
-                'status'        => 'ACTIVE',
-                'created_at'    => now(),
+                'id'         => $u['id'],
+                'tenant_id'  => $u['tenant_id'],
+                'email'      => $u['email'],
+                'full_name'  => $u['name'],
+                'password'   => $defaultPassword,
+                'status'     => 'ACTIVE',
+                'created_at' => now(),
             ];
         }, $usersData);
 
         DB::table('users')->insert($usersInsert);
+
+        // 3.1. Inserción Masiva de Departamentos Asignados (N:M user_departments)
+        $userDepartmentsInsert = [];
+        foreach ($usersData as $u) {
+            if (!empty($u['dept'])) {
+                $userDepartmentsInsert[] = [
+                    'id'            => Str::uuid()->toString(),
+                    'user_id'       => $u['id'],
+                    'department_id' => $u['dept'],
+                    'is_primary'    => true,
+                    'assigned_at'   => now(),
+                ];
+            }
+        }
+
+        // Escenarios Multi-Departamento para validación N:M
+        $extraDepartments = [
+            ['user_id' => $userViewerId1, 'department_id' => $deptRadiologíaId,  'is_primary' => false],
+            ['user_id' => $userViewerId1, 'department_id' => $deptLaboratorioId, 'is_primary' => false],
+            ['user_id' => $userEditorId1, 'department_id' => $deptConsultasId,   'is_primary' => false],
+            ['user_id' => $userViewerId9, 'department_id' => $deptCorporativoId, 'is_primary' => false],
+        ];
+
+        foreach ($extraDepartments as $extra) {
+            $userDepartmentsInsert[] = [
+                'id'            => Str::uuid()->toString(),
+                'user_id'       => $extra['user_id'],
+                'department_id' => $extra['department_id'],
+                'is_primary'    => $extra['is_primary'],
+                'assigned_at'   => now(),
+            ];
+        }
+
+        if (!empty($userDepartmentsInsert)) {
+            DB::table('user_departments')->insert($userDepartmentsInsert);
+        }
 
         // 4. Inserción Masiva de Roles (user_roles)
         $rolesInsert = array_map(function ($u) {
@@ -251,6 +286,16 @@ class TestScenarioSeeder extends Seeder
                 'assigned_at' => now(),
             ];
         }, $usersData);
+
+        // Escenario Multi-Rol: Dr. Carlos Mendoza también es APPROVER en la Clínica
+        $rolesInsert[] = [
+            'id'          => Str::uuid()->toString(),
+            'user_id'     => $userEditorId1,
+            'role_id'     => 'APPROVER',
+            'tenant_id'   => $tenantClinicaId,
+            'assigned_by' => null,
+            'assigned_at' => now(),
+        ];
 
         DB::table('user_roles')->insert($rolesInsert);
 

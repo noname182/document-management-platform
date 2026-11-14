@@ -24,27 +24,23 @@ interface UserFormModalProps {
 const ROLES: { id: TenantUserRole; name: string; description: string }[] = [
   {
     id: "TENANT_ADMIN",
-    name: "Administrador de Organización (TENANT_ADMIN)",
-    description:
-      "Control de usuarios, áreas, categorías y liberación administrativa de candados.",
+    name: "Admin de Organización (TENANT_ADMIN)",
+    description: "Control de usuarios, áreas, categorías y liberación de candados.",
   },
   {
     id: "APPROVER",
-    name: "Aprobador de Expedientes (APPROVER)",
-    description:
-      "Revisión, aprobación o rechazo de documentos y acceso a bitácora forense.",
+    name: "Aprobador (APPROVER)",
+    description: "Revisión, rollback y auditoría forense de expedientes.",
   },
   {
     id: "EDITOR",
     name: "Editor Documental (EDITOR)",
-    description:
-      "Creación, edición, checkout y checkin de expedientes en su departamento.",
+    description: "Creación, edición, checkout y checkin en sus áreas asignadas.",
   },
   {
     id: "VIEWER",
     name: "Lector / Auditor (VIEWER)",
-    description:
-      "Solo lectura y descarga de documentos de su departamento asignado.",
+    description: "Solo lectura y descarga en sus departamentos asignados.",
   },
 ];
 
@@ -62,8 +58,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [roleId, setRoleId] = useState<TenantUserRole>("EDITOR");
-  const [departmentId, setDepartmentId] = useState("");
+  const [roleIds, setRoleIds] = useState<TenantUserRole[]>(["EDITOR"]);
+  const [departmentIds, setDepartmentIds] = useState<string[]>([]);
   const [status, setStatus] = useState<"ACTIVE" | "SUSPENDED">("ACTIVE");
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -79,31 +75,56 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
         setFullName(initialData.full_name);
         setEmail(initialData.email);
         setPassword("");
-        const currentRole = (initialData.roles?.[0]?.id as TenantUserRole) || "EDITOR";
-        setRoleId(currentRole);
-        setDepartmentId(initialData.department_id || initialData.department?.id || "");
+        const currentRoles = (initialData.roles?.map((r) => r.id as TenantUserRole) || []);
+        setRoleIds(currentRoles.length > 0 ? currentRoles : ["EDITOR"]);
+
+        // Ordenar poniendo el departamento principal primero
+        const sortedDepts = [...(initialData.departments || [])].sort(
+          (a, b) => Number(Boolean(b.pivot?.is_primary)) - Number(Boolean(a.pivot?.is_primary))
+        );
+        setDepartmentIds(sortedDepts.map((d) => d.id));
         setStatus(initialData.status);
       } else {
         setFullName("");
         setEmail("");
         setPassword("");
-        setRoleId("EDITOR");
-        setDepartmentId(departments[0]?.id || "");
+        setRoleIds(["EDITOR"]);
+        setDepartmentIds(departments[0]?.id ? [departments[0].id] : []);
         setStatus("ACTIVE");
       }
       setFormError(null);
     }
   }
 
-  const requiresDepartment = roleId === "EDITOR" || roleId === "VIEWER";
+  const toggleRole = (role: TenantUserRole) => {
+    setRoleIds((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
+
+  const toggleDepartment = (deptId: string) => {
+    setDepartmentIds((prev) =>
+      prev.includes(deptId) ? prev.filter((id) => id !== deptId) : [...prev, deptId]
+    );
+  };
+
+  const setAsPrimaryDepartment = (deptId: string) => {
+    setDepartmentIds((prev) => [deptId, ...prev.filter((id) => id !== deptId)]);
+  };
+
+  const requiresDepartment = roleIds.includes("EDITOR") || roleIds.includes("VIEWER");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    // Validación de departamento condicional según ABAC backend
-    if (requiresDepartment && !departmentId) {
-      setFormError("Los roles EDITOR y VIEWER requieren obligatoriamente un departamento asignado.");
+    if (roleIds.length === 0) {
+      setFormError("Debe seleccionar al menos un rol operativo para el usuario.");
+      return;
+    }
+
+    if (requiresDepartment && departmentIds.length === 0) {
+      setFormError("Los roles EDITOR y VIEWER requieren obligatoriamente al menos un departamento asignado.");
       return;
     }
 
@@ -111,8 +132,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
       if (isEditing && initialData) {
         const payload: UpdateUserPayload = {
           full_name: fullName.trim(),
-          role_id: roleId,
-          department_id: departmentId || null,
+          role_ids: roleIds,
+          department_ids: departmentIds,
           status,
         };
         await onUpdate(initialData.id, payload);
@@ -126,8 +147,8 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
           full_name: fullName.trim(),
           email: email.trim().toLowerCase(),
           password,
-          role_id: roleId,
-          department_id: departmentId || null,
+          role_ids: roleIds,
+          department_ids: departmentIds,
         };
         await onSubmit(payload);
       }
@@ -145,12 +166,11 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Editar Perfil y Rol de Usuario" : "Registrar Nuevo Usuario"}
-      subtitle="Defina las credenciales, permisos y la pertenencia departamental bajo control ABAC."
+      title={isEditing ? "Editar Perfil, Roles y Áreas ABAC" : "Registrar Nuevo Usuario"}
+      subtitle="Asigne múltiples roles operativos y departamentos autorizados (relación N:M)."
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
-        {/* Error Alert */}
         {formError && (
           <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-xs text-red-300 flex items-start gap-2.5">
             <svg
@@ -180,7 +200,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               type="text"
               required
               maxLength={150}
-              placeholder="Ej. Roberto Baldivieso Guzmán"
+              placeholder="Ej. Dr. Carlos Mendoza Rojas"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
@@ -201,11 +221,6 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 placeholder-slate-500 disabled:opacity-50 disabled:bg-slate-900/50 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
             />
-            {isEditing && (
-              <p className="mt-1 text-[11px] text-slate-500">
-                El correo electrónico corporativo es inmutable para preservar la firma en auditorías forenses.
-              </p>
-            )}
           </div>
 
           {/* Contraseña Inicial (Solo al crear) */}
@@ -226,63 +241,118 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
             </div>
           )}
 
-          {/* Rol del Sistema */}
+          {/* Selección Múltiple de Roles */}
           <div className="sm:col-span-2">
             <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Rol Operativo / Privilegios <span className="text-red-400">*</span>
+              Roles Operativos Asignados <span className="text-red-400">*</span>{" "}
+              <span className="text-slate-500 font-normal">(Puede combinar múltiples roles)</span>
             </label>
-            <select
-              value={roleId}
-              onChange={(e) => setRoleId(e.target.value as TenantUserRole)}
-              className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-colors"
-            >
-              {ROLES.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1.5 text-[11px] text-slate-400">
-              {ROLES.find((r) => r.id === roleId)?.description}
-            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {ROLES.map((role) => {
+                const checked = roleIds.includes(role.id);
+                return (
+                  <button
+                    key={role.id}
+                    type="button"
+                    onClick={() => toggleRole(role.id)}
+                    className={`text-left p-2.5 rounded-xl border transition-all flex items-start gap-2.5 ${
+                      checked
+                        ? "bg-indigo-500/15 border-indigo-500/50 text-slate-100"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => {}}
+                      className="mt-0.5 rounded border-slate-700 text-indigo-600 focus:ring-0"
+                    />
+                    <div>
+                      <div className="text-xs font-semibold leading-tight">{role.name}</div>
+                      <div className="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                        {role.description}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Departamento Asignado */}
-          <div className={isEditing ? "sm:col-span-1" : "sm:col-span-2"}>
-            <label className="block text-xs font-medium text-slate-300 mb-1.5">
-              Departamento Asignado{" "}
-              {requiresDepartment ? (
-                <span className="text-amber-400 font-semibold">* (Obligatorio para {roleId})</span>
-              ) : (
-                <span className="text-slate-500">(Opcional / Global)</span>
+          {/* Selección Múltiple de Departamentos (N:M) */}
+          <div className="sm:col-span-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-slate-300">
+                Departamentos Autorizados (ABAC){" "}
+                {requiresDepartment ? (
+                  <span className="text-amber-400 font-semibold">* (Mínimo 1)</span>
+                ) : (
+                  <span className="text-slate-500">(Opcional / Acceso Global)</span>
+                )}
+              </label>
+              {departmentIds.length > 0 && (
+                <span className="text-[11px] text-indigo-300">
+                  {departmentIds.length} seleccionado(s)
+                </span>
               )}
-            </label>
-            <select
-              required={requiresDepartment}
-              value={departmentId}
-              onChange={(e) => setDepartmentId(e.target.value)}
-              className={`w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border text-sm text-slate-100 focus:outline-none transition-colors ${
-                requiresDepartment && !departmentId
-                  ? "border-amber-500/50 focus:border-amber-500 focus:ring-1 focus:ring-amber-500"
-                  : "border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-              }`}
-            >
-              <option value="">
-                {requiresDepartment
-                  ? "-- Seleccione un departamento obligatorio --"
-                  : "Sin Departamento Asignado (Acceso Global de Tenant)"}
-              </option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
+            </div>
+
+            {departments.length === 0 ? (
+              <p className="text-xs text-slate-500 p-3 rounded-xl bg-slate-950 border border-slate-800">
+                No hay departamentos creados en la organización.
+              </p>
+            ) : (
+              <div className="max-h-40 overflow-y-auto p-2 rounded-xl bg-slate-950 border border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                {departments.map((dept) => {
+                  const isSelected = departmentIds.includes(dept.id);
+                  const isPrimary = departmentIds[0] === dept.id;
+                  return (
+                    <div
+                      key={dept.id}
+                      onClick={() => toggleDepartment(dept.id)}
+                      className={`cursor-pointer px-3 py-2 rounded-lg border text-xs flex items-center justify-between transition-colors ${
+                        isSelected
+                          ? "bg-indigo-500/15 border-indigo-500/40 text-slate-100"
+                          : "bg-slate-900/50 border-slate-800/80 text-slate-400 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="rounded border-slate-700 text-indigo-600 focus:ring-0"
+                        />
+                        <span className="truncate font-medium">{dept.name}</span>
+                      </div>
+
+                      {isSelected && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAsPrimaryDepartment(dept.id);
+                          }}
+                          title={isPrimary ? "Departamento principal" : "Marcar como principal"}
+                          className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${
+                            isPrimary
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                              : "bg-slate-800 text-slate-400 hover:text-amber-300"
+                          }`}
+                        >
+                          {isPrimary ? "★ Principal" : "Principal"}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Estado del Usuario (Solo al editar) */}
           {isEditing && (
-            <div className="sm:col-span-1">
+            <div className="sm:col-span-2">
               <label className="block text-xs font-medium text-slate-300 mb-1.5">
                 Estado de la Cuenta
               </label>

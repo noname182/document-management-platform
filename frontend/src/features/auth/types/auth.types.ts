@@ -13,12 +13,20 @@ export interface TenantInfo {
   slug: string;
 }
 
+
+export interface UserDepartmentSummary {
+  id: string;
+  name: string;
+  is_primary?: boolean;
+}
+
 export interface AuthUser {
   id: string | number;
   email: string;
   full_name: string;
   tenant: TenantInfo | null;
-  department_id: string | number | null;
+  departments: UserDepartmentSummary[];
+  department_ids: string[];
   roles: (number | string)[];
   permissions: string[];
 }

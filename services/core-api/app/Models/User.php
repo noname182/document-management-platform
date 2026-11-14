@@ -21,7 +21,6 @@ class User extends Authenticatable
 
     protected $fillable = [
         'tenant_id',
-        'department_id',
         'email',
         'full_name',
         'password',
@@ -45,15 +44,21 @@ class User extends Authenticatable
         return $this->belongsTo(Tenant::class);
     }
 
-    public function department()
+    public function departments(): BelongsToMany
     {
-        return $this->belongsTo(Department::class, 'department_id');
+        return $this->belongsToMany(Department::class, 'user_departments', 'user_id', 'department_id')
+            ->withPivot(['is_primary', 'assigned_at']);
     }
 
-    public function roles()
+    public function departmentIds(): array
+    {
+        return $this->departments->pluck('id')->toArray();
+    }
+
+    public function roles(): BelongsToMany
     {
         return $this->belongsToMany(Role::class, 'user_roles', 'user_id', 'role_id')
-                    ->withPivot(['tenant_id', 'assigned_by', 'assigned_at']);
+            ->withPivot(['tenant_id', 'assigned_by', 'assigned_at']);
     }
 
     public function hasRole(string $role): bool

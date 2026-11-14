@@ -31,9 +31,9 @@ class AuthController extends Controller
             );
         }
 
-        // Buscar el usuario sin filtrar por tenant global (para permitir autenticar tanto al SYSTEM_ADMIN como a inquilinos)
+        // Buscar el usuario sin filtrar por tenant global
         $user = User::withoutGlobalScope('tenant_isolation')
-            ->with(['roles.permissions', 'tenant', 'department'])
+            ->with(['roles.permissions', 'tenant', 'departments:id,name'])
             ->where('email', $request->email)
             ->first();
 
@@ -50,29 +50,39 @@ class AuthController extends Controller
             'token_type'   => 'Bearer',
             'access_token' => $token,
             'user' => [
-                'id'            => $user->id,
-                'email'         => $user->email,
-                'full_name'     => $user->full_name,
-                'tenant'        => $user->tenant ? ['id' => $user->tenant->id, 'slug' => $user->tenant->slug] : null,
-                'department_id' => $user->department_id,
-                'roles'         => $user->roles->pluck('id'),
-                'permissions'   => $user->getAllPermissions(),
+                'id'             => $user->id,
+                'email'          => $user->email,
+                'full_name'      => $user->full_name,
+                'tenant'         => $user->tenant ? ['id' => $user->tenant->id, 'slug' => $user->tenant->slug] : null,
+                'departments'    => $user->departments->map(fn ($d) => [
+                    'id'         => $d->id,
+                    'name'       => $d->name,
+                    'is_primary' => (bool) $d->pivot->is_primary,
+                ])->values(),
+                'department_ids' => $user->departments->pluck('id')->values(),
+                'roles'          => $user->roles->pluck('id')->values(),
+                'permissions'    => $user->getAllPermissions(),
             ],
         ], 'Sesión iniciada correctamente.');
     }
 
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['roles.permissions', 'tenant', 'department']);
+        $user = $request->user()->load(['roles.permissions', 'tenant', 'departments:id,name']);
 
         return $this->success([
-            'id'            => $user->id,
-            'email'         => $user->email,
-            'full_name'     => $user->full_name,
-            'tenant'        => $user->tenant ? ['id' => $user->tenant->id, 'slug' => $user->tenant->slug] : null,
-            'department_id' => $user->department_id,
-            'roles'         => $user->roles->pluck('role_key'),
-            'permissions'   => $user->getAllPermissions(),
+            'id'             => $user->id,
+            'email'          => $user->email,
+            'full_name'      => $user->full_name,
+            'tenant'         => $user->tenant ? ['id' => $user->tenant->id, 'slug' => $user->tenant->slug] : null,
+            'departments'    => $user->departments->map(fn ($d) => [
+                'id'         => $d->id,
+                'name'       => $d->name,
+                'is_primary' => (bool) $d->pivot->is_primary,
+            ])->values(),
+            'department_ids' => $user->departments->pluck('id')->values(),
+            'roles'          => $user->roles->pluck('id')->values(),
+            'permissions'    => $user->getAllPermissions(),
         ]);
     }
 

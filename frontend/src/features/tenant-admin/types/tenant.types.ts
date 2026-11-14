@@ -64,17 +64,22 @@ export interface TenantUserRoleInfo {
   name: string;
 }
 
+export interface TenantUserDepartmentInfo {
+  id: string;
+  name: string;
+  pivot?: {
+    is_primary?: boolean;
+    assigned_at?: string;
+  };
+}
+
 export interface TenantUserItem {
   id: string;
   tenant_id: string;
-  department_id?: string | null;
   full_name: string;
   email: string;
   status: "ACTIVE" | "SUSPENDED";
-  department?: {
-    id: string;
-    name: string;
-  } | null;
+  departments?: TenantUserDepartmentInfo[];
   roles?: TenantUserRoleInfo[];
   created_at?: string;
   updated_at?: string;
@@ -84,15 +89,15 @@ export interface CreateUserPayload {
   full_name: string;
   email: string;
   password: string;
-  role_id: TenantUserRole;
-  department_id?: string | null;
+  role_ids: TenantUserRole[];
+  department_ids?: string[];
 }
 
 export interface UpdateUserPayload {
   full_name?: string;
   status?: "ACTIVE" | "SUSPENDED";
-  role_id?: TenantUserRole;
-  department_id?: string | null;
+  role_ids?: TenantUserRole[];
+  department_ids?: string[];
 }
 
 // ==========================================

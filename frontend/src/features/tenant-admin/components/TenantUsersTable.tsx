@@ -120,41 +120,63 @@ export const TenantUsersTable: React.FC<TenantUsersTableProps> = ({
       },
     },
     {
-      header: "ROL OPERATIVO",
+      header: "ROLES OPERATIVOS",
       render: (user) => {
-        const roleId = user.roles?.[0]?.id;
-        const badge = getRoleBadge(roleId);
+        const roles = user.roles && user.roles.length > 0 ? user.roles : [{ id: "VIEWER", name: "Lector" }];
 
         return (
-          <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badge.className}`}
-          >
-            <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
-            {badge.label}
-          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {roles.map((role) => {
+              const badge = getRoleBadge(role.id);
+              return (
+                <span
+                  key={role.id}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${badge.className}`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                  {badge.label}
+                </span>
+              );
+            })}
+          </div>
         );
       },
     },
     {
-      header: "DEPARTAMENTO",
-      render: (user) => (
-        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800/80 border border-slate-700/80 text-slate-300">
-          <svg
-            className="w-3.5 h-3.5 text-slate-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"
-            />
-          </svg>
-          {user.department?.name || "Global (Sin Dept)"}
-        </span>
-      ),
+      header: "DEPARTAMENTOS ASIGNADOS",
+      render: (user) => {
+        const depts = user.departments || [];
+
+        if (depts.length === 0) {
+          return (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800/80 border border-slate-700/80 text-slate-400">
+              Global (Sin Dept)
+            </span>
+          );
+        }
+
+        return (
+          <div className="flex flex-wrap gap-1.5 max-w-xs">
+            {depts.map((dept) => {
+              const isPrimary = Boolean(dept.pivot?.is_primary);
+              return (
+                <span
+                  key={dept.id}
+                  title={isPrimary ? "Departamento principal" : "Departamento secundario"}
+                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                    isPrimary
+                      ? "bg-indigo-500/10 border-indigo-500/30 text-indigo-200"
+                      : "bg-slate-800/80 border-slate-700/80 text-slate-300"
+                  }`}
+                >
+                  {isPrimary && <span className="text-amber-400 text-[10px]">★</span>}
+                  {dept.name}
+                </span>
+              );
+            })}
+          </div>
+        );
+      },
     },
     {
       header: "ESTADO",
@@ -242,11 +264,11 @@ export const TenantUsersTable: React.FC<TenantUsersTableProps> = ({
       data={users}
       keyExtractor={(u) => u.id}
       tabs={tabs}
-      searchPlaceholder="Buscar usuarios por nombre, correo o departamento..."
+      searchPlaceholder="Buscar usuarios por nombre, correo, rol o departamento..."
       searchPredicate={(user, q) =>
         user.full_name.toLowerCase().includes(q) ||
         user.email.toLowerCase().includes(q) ||
-        Boolean(user.department?.name.toLowerCase().includes(q)) ||
+        Boolean(user.departments?.some((d) => d.name.toLowerCase().includes(q))) ||
         Boolean(user.roles?.some((r) => r.id.toLowerCase().includes(q)))
       }
       headerActions={
