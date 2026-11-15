@@ -68,10 +68,10 @@ export const InfrastructureMetricsGrid: React.FC<InfrastructureMetricsGridProps>
         isRefreshing={isRefreshing}
       />
 
-      {/* Grid de KPIs Parametrizados */}
+      {/* Grid de KPIs Parametrizados (Etiquetas compactas sin truncamiento) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <KpiCard
-          label="Tenants Activos"
+          label="TENANTS"
           value={stats?.tenants_active ?? 0}
           sublabel={`de ${stats?.tenants_total ?? 0} organizaciones`}
           badge={`${tenantProgress}%`}
@@ -80,7 +80,7 @@ export const InfrastructureMetricsGrid: React.FC<InfrastructureMetricsGridProps>
         />
 
         <KpiCard
-          label="Usuarios Totales"
+          label="USUARIOS"
           value={stats?.users_total ?? 0}
           sublabel="En todas las organizaciones"
           badge="Global"
@@ -88,7 +88,7 @@ export const InfrastructureMetricsGrid: React.FC<InfrastructureMetricsGridProps>
         />
 
         <KpiCard
-          label="Expedientes"
+          label="EXPEDIENTES"
           value={stats?.documents_total ?? 0}
           sublabel={`${stats?.versions_total ?? 0} versiones inmutables`}
           badge="SHA-256"
@@ -96,7 +96,7 @@ export const InfrastructureMetricsGrid: React.FC<InfrastructureMetricsGridProps>
         />
 
         <KpiCard
-          label="Almacenamiento S3"
+          label="ALMACÉN S3"
           value={formatBytes(stats?.storage_bytes ?? 0)}
           sublabel="Cálculo SHA-256 verificado"
           badge="MinIO"
@@ -104,7 +104,7 @@ export const InfrastructureMetricsGrid: React.FC<InfrastructureMetricsGridProps>
         />
 
         <KpiCard
-          label="Candados en Edición"
+          label="CANDADOS"
           value={stats?.locked_documents ?? 0}
           sublabel="Bloqueo pesimista activo"
           badge="Checkout"

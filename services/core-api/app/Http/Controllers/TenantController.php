@@ -17,11 +17,15 @@ class TenantController extends Controller
     use ApiResponse;
 
     /**
-     * Lista todas las organizaciones (Tenants) con conteo de usuarios, departamentos y documentos.
+     * Lista todas las organizaciones (Tenants) con conteo real de usuarios, departamentos y documentos.
      */
     public function index(): JsonResponse
     {
-        $tenants = Tenant::withCount(['users', 'departments', 'documents'])
+        $tenants = Tenant::withCount([
+            'users' => fn ($query) => $query->withoutGlobalScopes(),
+            'departments' => fn ($query) => $query->withoutGlobalScopes(),
+            'documents' => fn ($query) => $query->withoutGlobalScopes(),
+        ])
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -114,7 +118,11 @@ class TenantController extends Controller
         ]);
 
         return $this->success(
-            $tenant->loadCount(['users', 'departments', 'documents']),
+            $tenant->loadCount([
+                'users' => fn ($query) => $query->withoutGlobalScopes(),
+                'departments' => fn ($query) => $query->withoutGlobalScopes(),
+                'documents' => fn ($query) => $query->withoutGlobalScopes(),
+            ]),
             'Organización actualizada correctamente.'
         );
     }

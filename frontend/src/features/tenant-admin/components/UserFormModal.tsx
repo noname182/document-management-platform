@@ -166,7 +166,7 @@ export const UserFormModal: React.FC<UserFormModalProps> = ({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={isEditing ? "Editar Perfil, Roles y Áreas ABAC" : "Registrar Nuevo Usuario"}
+      title={isEditing ? "Editar Perfil, Roles y Áreas" : "Registrar Nuevo Usuario"}
       subtitle="Asigne múltiples roles operativos y departamentos autorizados (relación N:M)."
       maxWidth="lg"
     >

@@ -13,9 +13,17 @@ import {
   PaginatedVaultResponse,
 } from "../types/documents.types";
 
+//solo de prueba, borrar despues
+const resolveHost = () =>
+  typeof window !== "undefined" ? window.location.hostname : "localhost";
+
+//cexport const PROCESSOR_BASE_URL =
+//  process.env.NEXT_PUBLIC_PROCESSOR_URL?.replace(/\/$/, "") ||
+//  "http://localhost:3001";
+
 export const PROCESSOR_BASE_URL =
   process.env.NEXT_PUBLIC_PROCESSOR_URL?.replace(/\/$/, "") ||
-  "http://localhost:3001";
+  `http://${resolveHost()}:3001`;
 
 export class DocumentVaultError extends Error {
   public status?: number;
@@ -136,6 +144,12 @@ export const documentsService = {
   async uploadToProcessor(file: File): Promise<ProcessorUploadResult> {
     const formData = new FormData();
     formData.append("file", file);
+
+    // un flag
+    const tenantSlug = tokenStorage.getUser()?.tenant?.slug;
+    if (tenantSlug) {
+      formData.append("tenantSlug", tenantSlug);
+    }
 
     let response: Response;
     try {

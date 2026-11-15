@@ -30,17 +30,18 @@ class SystemController extends Controller
 
         // 2. Verificar salud del microservicio NestJS (doc-processor en red interna Docker)
         $processorStatus = 'OFFLINE';
+        $processorUrl = rtrim(env('DOC_PROCESSOR_URL', 'http://doc-processor:3001'), '/');
         try {
-            $res = Http::timeout(2)->get('http://doc-processor:3000');
-            if ($res->successful()) {
+            $res = Http::timeout(2)->get($processorUrl);
+            if ($res->successful() || $res->status() === 404) {
                 $processorStatus = 'ONLINE';
             }
         } catch (\Throwable $e) {
             $processorStatus = 'OFFLINE';
         }
 
-        // 3. Métricas reales de uso en la plataforma
-        $totalStorageBytes = (int) DocumentVersion::sum('file_size_bytes');
+        // 3. Métricas reales globales omitiendo el global scope del tenant del sysadmin
+        $totalStorageBytes = (int) DocumentVersion::withoutGlobalScopes()->sum('file_size_bytes');
 
         $metrics = [
             'services' => [
@@ -50,13 +51,13 @@ class SystemController extends Controller
                 'minio_storage' => $processorStatus === 'ONLINE' ? 'ONLINE' : 'DEGRADED',
             ],
             'stats' => [
-                'tenants_total'     => Tenant::where('slug', '!=', 'platform-system')->count(),
-                'tenants_active'    => Tenant::where('slug', '!=', 'platform-system')->where('status', 'ACTIVE')->count(),
-                'users_total'       => User::count(),
-                'documents_total'   => Document::count(),
-                'versions_total'    => DocumentVersion::count(),
-                'storage_bytes'     => $totalStorageBytes,
-                'locked_documents'  => Document::where('is_locked', true)->count(),
+                'tenants_total'    => Tenant::where('slug', '!=', 'platform-system')->count(),
+                'tenants_active'   => Tenant::where('slug', '!=', 'platform-system')->where('status', 'ACTIVE')->count(),
+                'users_total'      => User::withoutGlobalScopes()->count(),
+                'documents_total'  => Document::withoutGlobalScopes()->count(),
+                'versions_total'   => DocumentVersion::withoutGlobalScopes()->count(),
+                'storage_bytes'    => $totalStorageBytes,
+                'locked_documents' => Document::withoutGlobalScopes()->where('is_locked', true)->count(),
             ],
         ];
 

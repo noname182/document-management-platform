@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { DataTable, ColumnDef, Modal } from "@/shared";
 import {
   DepartmentItem,
@@ -25,6 +25,20 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
   isLoading = false,
   onRefresh,
 }) => {
+  // Estado local sincronizado para actualización optimista instantánea
+  const [localDepartments, setLocalDepartments] =
+    useState<DepartmentItem[]>(departments);
+  const [localCategories, setLocalCategories] =
+    useState<DocumentCategoryItem[]>(categories);
+
+  useEffect(() => {
+    setLocalDepartments(departments);
+  }, [departments]);
+
+  useEffect(() => {
+    setLocalCategories(categories);
+  }, [categories]);
+
   // Pestaña activa: "DEPARTMENTS" | "CATEGORIES"
   const [activeTab, setActiveTab] = useState<"DEPARTMENTS" | "CATEGORIES">(
     "DEPARTMENTS"
@@ -68,31 +82,55 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
 
   const handleSubmitDept = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!deptName.trim()) return;
+    const trimmedName = deptName.trim();
+    if (!trimmedName) return;
 
     setIsSubmitting(true);
     setFeedback(null);
 
     try {
       if (editingDept) {
-        const payload: UpdateDepartmentPayload = { name: deptName.trim() };
-        await tenantService.updateDepartment(editingDept.id, payload);
+        const payload: UpdateDepartmentPayload = { name: trimmedName };
+        const updated = await tenantService.updateDepartment(
+          editingDept.id,
+          payload
+        );
+
+        setLocalDepartments((prev) =>
+          prev.map((d) =>
+            d.id === editingDept.id ? { ...d, ...updated, name: trimmedName } : d
+          )
+        );
+        setIsDeptModalOpen(false);
+        setDeptName("");
+        setEditingDept(null);
         setFeedback({
-          message: `Departamento "${deptName.trim()}" actualizado correctamente.`,
+          message: `Departamento "${trimmedName}" actualizado correctamente.`,
           type: "success",
         });
       } else {
-        const payload: CreateDepartmentPayload = { name: deptName.trim() };
-        await tenantService.createDepartment(payload);
+        const payload: CreateDepartmentPayload = { name: trimmedName };
+        const created = await tenantService.createDepartment(payload);
+
+        setLocalDepartments((prev) => [
+          {
+            ...created,
+            users_count: created.users_count ?? 0,
+            categories_count: created.categories_count ?? 0,
+          },
+          ...prev,
+        ]);
+        setIsDeptModalOpen(false);
+        setDeptName("");
+        setEditingDept(null);
         setFeedback({
-          message: `Departamento "${deptName.trim()}" creado exitosamente.`,
+          message: `Departamento "${trimmedName}" creado exitosamente.`,
           type: "success",
         });
       }
-      setIsDeptModalOpen(false);
-      setDeptName("");
-      setEditingDept(null);
-      await onRefresh();
+
+      // Sincroniza KPIs y estado global en segundo plano sin bloquear la UI
+      void onRefresh();
     } catch (err: unknown) {
       const msg =
         err instanceof TenantError || err instanceof Error
@@ -126,11 +164,12 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
 
     try {
       await tenantService.deleteDepartment(dept.id);
+      setLocalDepartments((prev) => prev.filter((d) => d.id !== dept.id));
       setFeedback({
         message: `Departamento "${dept.name}" eliminado exitosamente.`,
         type: "success",
       });
-      await onRefresh();
+      void onRefresh();
     } catch (err: unknown) {
       const msg =
         err instanceof TenantError || err instanceof Error
@@ -148,7 +187,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
   const handleOpenCreateCat = () => {
     setEditingCat(null);
     setCatName("");
-    setCatDeptId(departments[0]?.id || "");
+    setCatDeptId(localDepartments[0]?.id || "");
     setCatDescription("");
     setIsCatModalOpen(true);
   };
@@ -163,41 +202,90 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
 
   const handleSubmitCat = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!catName.trim() || !catDeptId) return;
+    const trimmedName = catName.trim();
+    if (!trimmedName || !catDeptId) return;
 
     setIsSubmitting(true);
     setFeedback(null);
 
+    const linkedDept = localDepartments.find((d) => d.id === catDeptId);
+
     try {
       if (editingCat) {
         const payload: UpdateCategoryPayload = {
-          name: catName.trim(),
+          name: trimmedName,
           department_id: catDeptId,
           description: catDescription.trim() || null,
         };
-        await tenantService.updateCategory(editingCat.id, payload);
+        const updated = await tenantService.updateCategory(
+          editingCat.id,
+          payload
+        );
+
+        setLocalCategories((prev) =>
+          prev.map((c) =>
+            c.id === editingCat.id
+              ? {
+                  ...c,
+                  ...updated,
+                  name: trimmedName,
+                  department_id: catDeptId,
+                  description: catDescription.trim() || null,
+                  department: linkedDept
+                    ? { id: linkedDept.id, name: linkedDept.name }
+                    : c.department,
+                }
+              : c
+          )
+        );
+        setIsCatModalOpen(false);
+        setCatName("");
+        setCatDeptId("");
+        setCatDescription("");
+        setEditingCat(null);
         setFeedback({
-          message: `Categoría "${catName.trim()}" actualizada correctamente.`,
+          message: `Categoría "${trimmedName}" actualizada correctamente.`,
           type: "success",
         });
       } else {
         const payload: CreateCategoryPayload = {
-          name: catName.trim(),
+          name: trimmedName,
           department_id: catDeptId,
           description: catDescription.trim() || null,
         };
-        await tenantService.createCategory(payload);
+        const created = await tenantService.createCategory(payload);
+
+        setLocalCategories((prev) => [
+          {
+            ...created,
+            documents_count: created.documents_count ?? 0,
+            department:
+              created.department ||
+              (linkedDept
+                ? { id: linkedDept.id, name: linkedDept.name }
+                : undefined),
+          },
+          ...prev,
+        ]);
+        setLocalDepartments((prev) =>
+          prev.map((d) =>
+            d.id === catDeptId
+              ? { ...d, categories_count: (d.categories_count ?? 0) + 1 }
+              : d
+          )
+        );
+        setIsCatModalOpen(false);
+        setCatName("");
+        setCatDeptId("");
+        setCatDescription("");
+        setEditingCat(null);
         setFeedback({
-          message: `Categoría "${catName.trim()}" creada exitosamente.`,
+          message: `Categoría "${trimmedName}" creada exitosamente.`,
           type: "success",
         });
       }
-      setIsCatModalOpen(false);
-      setCatName("");
-      setCatDeptId("");
-      setCatDescription("");
-      setEditingCat(null);
-      await onRefresh();
+
+      void onRefresh();
     } catch (err: unknown) {
       const msg =
         err instanceof TenantError || err instanceof Error
@@ -231,11 +319,22 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
 
     try {
       await tenantService.deleteCategory(cat.id);
+      setLocalCategories((prev) => prev.filter((c) => c.id !== cat.id));
+      setLocalDepartments((prev) =>
+        prev.map((d) =>
+          d.id === cat.department_id
+            ? {
+                ...d,
+                categories_count: Math.max(0, (d.categories_count ?? 1) - 1),
+              }
+            : d
+        )
+      );
       setFeedback({
         message: `Categoría "${cat.name}" eliminada exitosamente.`,
         type: "success",
       });
-      await onRefresh();
+      void onRefresh();
     } catch (err: unknown) {
       const msg =
         err instanceof TenantError || err instanceof Error
@@ -513,7 +612,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                   : "bg-slate-800 text-slate-400"
               }`}
             >
-              {departments.length}
+              {localDepartments.length}
             </span>
           </button>
 
@@ -547,7 +646,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
                   : "bg-slate-800 text-slate-400"
               }`}
             >
-              {categories.length}
+              {localCategories.length}
             </span>
           </button>
         </div>
@@ -578,7 +677,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
           <button
             type="button"
             onClick={handleOpenCreateCat}
-            disabled={departments.length === 0}
+            disabled={localDepartments.length === 0}
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:pointer-events-none text-white text-xs font-semibold shadow-md shadow-indigo-600/25 transition-all"
           >
             <svg
@@ -603,7 +702,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
       {activeTab === "DEPARTMENTS" && (
         <DataTable<DepartmentItem>
           columns={departmentColumns}
-          data={departments}
+          data={localDepartments}
           keyExtractor={(dept) => dept.id}
           searchPlaceholder="Buscar departamentos por nombre..."
           searchPredicate={(dept, q) =>
@@ -618,7 +717,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
       {activeTab === "CATEGORIES" && (
         <DataTable<DocumentCategoryItem>
           columns={categoryColumns}
-          data={categories}
+          data={localCategories}
           keyExtractor={(cat) => cat.id}
           searchPlaceholder="Buscar categorías por nombre o departamento..."
           searchPredicate={(cat, q) =>
@@ -724,7 +823,7 @@ export const OrganizationManager: React.FC<OrganizationManagerProps> = ({
               <option value="" disabled>
                 Seleccione un departamento...
               </option>
-              {departments.map((d) => (
+              {localDepartments.map((d) => (
                 <option key={d.id} value={d.id}>
                   {d.name}
                 </option>

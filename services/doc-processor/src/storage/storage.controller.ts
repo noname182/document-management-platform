@@ -2,6 +2,7 @@ import {
   Controller,
   Post,
   Get,
+  Body,
   Query,
   Res,
   UseInterceptors,
@@ -20,40 +21,62 @@ export class StorageController {
 
   @Post('process')
   @UseInterceptors(FileInterceptor('file'))
-  async processDocument(@UploadedFile() file: Express.Multer.File) {
+  async processDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('tenantSlug') rawTenantSlug?: string,
+  ) {
     if (!file) {
       throw new BadRequestException('No se ha proporcionado ningún archivo');
     }
 
-    // Guardar en cuarentena
+    // Sanitiza el slug del tenant (ej. "micro-negocio-de-tecnologia") o usa "default"
+    const tenantSlug =
+      rawTenantSlug
+        ?.trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]/g, '') || 'default';
+
+    // 1. Guardar en cuarentena bajo la carpeta del tenant
     const quarantineKey = await this.storageService.uploadToQuarantine(
       file.originalname,
       file.buffer,
       file.mimetype,
+      tenantSlug,
     );
 
-    // Validación de bytes reales e integridad criptográfica
+    // 2. Validación de bytes reales e integridad criptográfica
     const inspection = await this.storageService.inspectAndHash(file.buffer);
 
-    // Mover a processed-documents con metadata del hash
+    // 3. Mover a processed-documents bajo <tenantSlug>/<año>/...
     const processedKey = await this.storageService.promoteToProcessed(
       file.originalname,
       file.buffer,
       inspection.mime,
       inspection.hash,
+      tenantSlug,
     );
 
-    // Generar log inmutable de auditoría
+    // 4. Limpiar archivo temporal de cuarentena tras promoverlo
+    const storageWithCleanup = this.storageService as unknown as {
+      removeFromQuarantine?: (key: string) => Promise<void>;
+    };
+    if (typeof storageWithCleanup.removeFromQuarantine === 'function') {
+      await storageWithCleanup.removeFromQuarantine(quarantineKey);
+    }
+
+    // 5. Generar log inmutable de auditoría bajo el tenant
     const auditKey = await this.storageService.recordAuditLog(
       processedKey,
       inspection.hash,
       file.size,
+      tenantSlug,
     );
 
     return {
       status: 'success',
       message: 'Documento verificado, procesado y auditado correctamente',
       data: {
+        tenantSlug,
         hashSha256: inspection.hash,
         mimeType: inspection.mime,
         quarantineLocation: quarantineKey,
