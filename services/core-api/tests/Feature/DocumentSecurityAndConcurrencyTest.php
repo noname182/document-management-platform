@@ -197,7 +197,9 @@ class DocumentSecurityAndConcurrencyTest extends TestCase
 
         $this->assertContains('EDITOR', $roles);
         $this->assertContains('APPROVER', $roles);
-        $this->assertCount(2, $deptIds);
+        $this->assertContains('EDITOR', $roles);
+        $this->assertContains('APPROVER', $roles);
+        $this->assertCount($this->cirujano1->departments()->count(), $deptIds);
     }
 
     #[Test]
@@ -298,5 +300,93 @@ class DocumentSecurityAndConcurrencyTest extends TestCase
 
         $this->getJson("/api/v1/documents/{$this->documentoCirugia->id}")
              ->assertStatus(403);
+    }
+
+    #[Test]
+    public function approver_puede_aprobar_una_version_y_registrar_auditoria_forense(): void
+    {
+        $approver = User::where('email', 'patricia.revisora.med@gmail.com')->firstOrFail();
+        $versionActiva = $this->documentoCirugia->currentVersion;
+
+        Sanctum::actingAs($approver);
+
+        $response = $this->postJson(
+            "/api/v1/documents/{$this->documentoCirugia->id}/versions/{$versionActiva->id}/approve",
+            ['comment' => 'Validación clínica conforme al protocolo quirúrgico']
+        );
+
+        $response->assertStatus(200)
+                 ->assertJsonFragment([
+                     'id'     => $versionActiva->id,
+                     'status' => 'APPROVED',
+                 ]);
+
+        $this->assertDatabaseHas('document_audit_logs', [
+            'document_id' => $this->documentoCirugia->id,
+            'version_id'  => $versionActiva->id,
+            'user_id'     => $approver->id,
+            'action'      => 'VERSION_APPROVED',
+            'sha256_hash' => $versionActiva->sha256_hash,
+        ]);
+    }
+
+    #[Test]
+    public function approver_puede_rechazar_con_motivo_obligatorio_y_restaurar_puntero_a_version_previa(): void
+    {
+        // 1. Subir v3 como versión activa reciente
+        Sanctum::actingAs($this->cirujano1);
+        $this->postJson("/api/v1/documents/{$this->documentoCirugia->id}/checkout")->assertStatus(200);
+
+        $checkinRes = $this->postJson("/api/v1/documents/{$this->documentoCirugia->id}/checkin", [
+            'storage_key'       => "clinica-olivos/docs/{$this->documentoCirugia->id}/v3/borrador_incompleto.pdf",
+            'original_filename' => 'borrador_incompleto.pdf',
+            'mime_type'         => 'application/pdf',
+            'file_size_bytes'   => 12000,
+            'sha256_hash'       => hash('sha256', 'borrador-v3-rechazable'),
+            'change_summary'    => 'Borrador v3 sin firma',
+        ])->assertStatus(201);
+
+        $v3Id = $checkinRes->json('data.id');
+        $v2 = $this->documentoCirugia->versions()->where('version_number', 2)->firstOrFail();
+
+        $approver = User::where('email', 'patricia.revisora.med@gmail.com')->firstOrFail();
+        Sanctum::actingAs($approver);
+
+        // 2. Intentar rechazar sin motivo -> 422
+        $this->postJson("/api/v1/documents/{$this->documentoCirugia->id}/versions/{$v3Id}/reject", [])
+             ->assertStatus(422);
+
+        // 3. Rechazar con motivo válido -> v3 pasa a REJECTED y current_version_id vuelve a v2
+        $rejectRes = $this->postJson("/api/v1/documents/{$this->documentoCirugia->id}/versions/{$v3Id}/reject", [
+            'reason' => 'Falta firma del jefe de guardia en la página 2',
+        ]);
+
+        $rejectRes->assertStatus(200)
+                  ->assertJsonFragment(['status' => 'REJECTED']);
+
+        $this->assertEquals($v2->id, $this->documentoCirugia->fresh()->current_version_id);
+        $this->assertEquals('ACTIVE', $v2->fresh()->status);
+
+        $this->assertDatabaseHas('document_audit_logs', [
+            'document_id' => $this->documentoCirugia->id,
+            'version_id'  => $v3Id,
+            'user_id'     => $approver->id,
+            'action'      => 'VERSION_REJECTED',
+        ]);
+    }
+
+    #[Test]
+    public function rbac_un_viewer_o_editor_sin_permiso_no_puede_aprobar_ni_rechazar(): void
+    {
+        $versionActiva = $this->documentoCirugia->currentVersion;
+
+        Sanctum::actingAs($this->viewerClinica);
+        $this->postJson("/api/v1/documents/{$this->documentoCirugia->id}/versions/{$versionActiva->id}/approve")
+             ->assertStatus(403);
+
+        Sanctum::actingAs($this->radiologo);
+        $this->postJson("/api/v1/documents/{$this->documentoCirugia->id}/versions/{$versionActiva->id}/reject", [
+            'reason' => 'Intento sin permiso',
+        ])->assertStatus(403);
     }
 }

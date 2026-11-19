@@ -51,6 +51,12 @@ Route::prefix('v1')->group(function () {
 
             // Gobernanza Forense: Forward-Rollback
             Route::post('/{id}/rollback', [DocumentController::class, 'rollback'])->middleware('abac:doc:rollback');
+
+            // Flujo de Aprobación y Rechazo (APPROVER / TENANT_ADMIN / SYSTEM_ADMIN)
+            Route::post('/{id}/versions/{versionId}/approve', [DocumentController::class, 'approve'])
+                ->middleware('abac:doc:approve');
+            Route::post('/{id}/versions/{versionId}/reject', [DocumentController::class, 'reject'])
+                ->middleware('abac:doc:reject');
         });
 
         // Auditoría Forense (TENANT_ADMIN y APPROVER)

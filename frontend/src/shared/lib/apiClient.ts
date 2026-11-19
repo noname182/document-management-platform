@@ -1,9 +1,16 @@
 import { tokenStorage } from "./tokenStorage";
 import { ApiResponse } from "@/features/auth/types/auth.types";
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:8000/api/v1";
+export const getDynamicApiBaseUrl = (): string => {
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+  }
+  const host =
+    typeof window !== "undefined" ? window.location.hostname : "localhost";
+  return `http://${host}:8000/api/v1`;
+};
+
+export const API_BASE_URL = getDynamicApiBaseUrl();
 
 export class ApiHttpError extends Error {
   public status?: number;
@@ -30,18 +37,12 @@ export interface ApiRequestOptions extends RequestInit {
  * Cliente HTTP centralizado, fuertemente tipado y parametrizado.
  */
 class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string) {
-    this.baseUrl = baseUrl;
-  }
-
   private buildUrl(
     endpoint: string,
     params?: Record<string, string | number | boolean | undefined | null>
   ): string {
     const cleanEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-    const url = new URL(`${this.baseUrl}${cleanEndpoint}`);
+    const url = new URL(`${getDynamicApiBaseUrl()}${cleanEndpoint}`);
 
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -173,5 +174,5 @@ class ApiClient {
   }
 }
 
-export const apiClient = new ApiClient(API_BASE_URL);
+export const apiClient = new ApiClient();
 export { tokenStorage };

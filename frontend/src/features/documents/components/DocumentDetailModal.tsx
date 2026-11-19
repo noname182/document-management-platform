@@ -19,6 +19,8 @@ interface DocumentDetailModalProps {
   canCheckin: boolean;
   canRollback: boolean;
   canDownload: boolean;
+  canApprove?: boolean;
+  canReject?: boolean;
   onSuccessAction: (message: string) => Promise<void>;
 }
 
@@ -29,6 +31,8 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   currentUserId,
   canCheckin,
   canRollback,
+  canApprove = false,
+  canReject = false,
   onSuccessAction,
 }) => {
   const [versions, setVersions] = useState<DocumentVersionItem[]>([]);
@@ -45,6 +49,14 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
   const [rollbackReason, setRollbackReason] = useState("");
   const [submittingRollback, setSubmittingRollback] = useState(false);
 
+  // Estado Dictamen Aprobar / Rechazar (APPROVER)
+  const [reviewAction, setReviewAction] = useState<{
+    type: "approve" | "reject";
+    version: DocumentVersionItem;
+  } | null>(null);
+  const [reviewNote, setReviewNote] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,6 +69,8 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
     setChangeSummary("");
     setRollbackTarget(null);
     setRollbackReason("");
+    setReviewAction(null);
+    setReviewNote("");
 
     documentsService
       .getDocumentVersions(document.id)
@@ -99,7 +113,7 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
       const processed = await documentsService.uploadToProcessor(file);
       const createdVersion = await documentsService.checkin(document.id, {
         storage_key: processed.storageLocation,
-        storage_bucket: "documents-vault",
+        storage_bucket: "processed-documents",
         original_filename: file.name,
         mime_type:
           processed.mimeType || file.type || "application/octet-stream",
@@ -149,6 +163,63 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
       );
     } finally {
       setSubmittingRollback(false);
+    }
+  };
+
+  const handleConfirmReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!reviewAction) return;
+
+    if (reviewAction.type === "reject" && reviewNote.trim().length < 5) {
+      setError("El motivo de rechazo debe tener al menos 5 caracteres.");
+      return;
+    }
+
+    setSubmittingReview(true);
+    setError(null);
+
+    try {
+      if (reviewAction.type === "approve") {
+        await documentsService.approveVersion(
+          document.id,
+          reviewAction.version.id,
+          reviewNote
+        );
+        await onSuccessAction(
+          `Versión v${reviewAction.version.version_number} aprobada y registrada en auditoría.`
+        );
+      } else {
+        await documentsService.rejectVersion(
+          document.id,
+          reviewAction.version.id,
+          reviewNote.trim()
+        );
+        await onSuccessAction(
+          `Versión v${reviewAction.version.version_number} rechazada y registrada en auditoría.`
+        );
+      }
+      onClose();
+    } catch (err) {
+      setError(
+        err instanceof DocumentVaultError || err instanceof Error
+          ? err.message
+          : "Error al registrar el dictamen."
+      );
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  const getStatusBadgeStyle = (status: string) => {
+    switch (status) {
+      case "APPROVED":
+        return "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
+      case "ACTIVE":
+        return "bg-sky-500/15 text-sky-300 border border-sky-500/30";
+      case "REJECTED":
+        return "bg-rose-500/15 text-rose-300 border border-rose-500/30";
+      default:
+        return "bg-slate-800 text-slate-400";
     }
   };
 
@@ -220,6 +291,79 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           </form>
         )}
 
+        {/* ZONA APPROVER: Dictamen de Aprobación / Rechazo */}
+        {reviewAction && (
+          <form
+            onSubmit={handleConfirmReview}
+            className={`p-4 rounded-xl border space-y-3 ${
+              reviewAction.type === "approve"
+                ? "bg-emerald-500/10 border-emerald-500/30"
+                : "bg-rose-500/10 border-rose-500/30"
+            }`}
+          >
+            <div
+              className={`text-xs font-semibold ${
+                reviewAction.type === "approve"
+                  ? "text-emerald-200"
+                  : "text-rose-200"
+              }`}
+            >
+              {reviewAction.type === "approve"
+                ? `Aprobar versión v${reviewAction.version.version_number} (${reviewAction.version.original_filename})`
+                : `Rechazar versión v${reviewAction.version.version_number} (${reviewAction.version.original_filename})`}
+            </div>
+            <p className="text-[11px] text-slate-300">
+              {reviewAction.type === "approve"
+                ? "La versión quedará marcada como APPROVED y consolidada como vigente en la bitácora forense."
+                : "El rechazo no borra el archivo ni el historial; se requiere un motivo explícito para auditoría."}
+            </p>
+            <input
+              type="text"
+              required={reviewAction.type === "reject"}
+              maxLength={500}
+              placeholder={
+                reviewAction.type === "approve"
+                  ? "Observación de aprobación (opcional)..."
+                  : "Motivo obligatorio del rechazo (mín. 5 caracteres)..."
+              }
+              value={reviewNote}
+              onChange={(e) => setReviewNote(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-slate-100 focus:outline-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setReviewAction(null);
+                  setReviewNote("");
+                }}
+                className="px-3 py-1.5 rounded-lg text-xs bg-slate-800 text-slate-300"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={
+                  submittingReview ||
+                  (reviewAction.type === "reject" &&
+                    reviewNote.trim().length < 5)
+                }
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold text-white disabled:opacity-50 ${
+                  reviewAction.type === "approve"
+                    ? "bg-emerald-600 hover:bg-emerald-500"
+                    : "bg-rose-600 hover:bg-rose-500"
+                }`}
+              >
+                {submittingReview
+                  ? "Guardando dictamen..."
+                  : reviewAction.type === "approve"
+                    ? "Confirmar Aprobación"
+                    : "Confirmar Rechazo"}
+              </button>
+            </div>
+          </form>
+        )}
+
         {/* ZONA APPROVER: Formulario de confirmación de Forward-Rollback */}
         {rollbackTarget && canRollback && (
           <form
@@ -280,21 +424,33 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
           ) : (
             <div className="max-h-72 overflow-y-auto space-y-2 pr-1">
               {versions.map((ver) => {
-                const isActive = ver.status === "ACTIVE";
+                const isCurrent =
+                  ver.id === document.current_version_id ||
+                  ver.status === "ACTIVE" ||
+                  ver.status === "APPROVED";
+                const canDictaminate =
+                  !document.is_locked &&
+                  ver.status !== "APPROVED" &&
+                  ver.status !== "REJECTED";
+
                 return (
                   <div
                     key={ver.id}
                     className={`p-3.5 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                      isActive
+                      ver.status === "APPROVED"
                         ? "bg-emerald-500/5 border-emerald-500/30"
-                        : "bg-slate-950/70 border-slate-800"
+                        : ver.status === "REJECTED"
+                          ? "bg-rose-500/5 border-rose-500/20"
+                          : ver.status === "ACTIVE"
+                            ? "bg-sky-500/5 border-sky-500/30"
+                            : "bg-slate-950/70 border-slate-800"
                     }`}
                   >
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span
                           className={`px-2 py-0.5 rounded font-mono text-xs font-bold ${
-                            isActive
+                            isCurrent
                               ? "bg-emerald-500/20 text-emerald-300"
                               : "bg-slate-800 text-slate-400"
                           }`}
@@ -305,11 +461,9 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                           {ver.original_filename}
                         </span>
                         <span
-                          className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold ${
-                            isActive
-                              ? "bg-emerald-500/10 text-emerald-300"
-                              : "bg-slate-800 text-slate-500"
-                          }`}
+                          className={`text-[10px] px-1.5 py-0.5 rounded uppercase font-semibold ${getStatusBadgeStyle(
+                            ver.status
+                          )}`}
                         >
                           {ver.status}
                         </span>
@@ -339,19 +493,50 @@ export const DocumentDetailModal: React.FC<DocumentDetailModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Botón Forward-Rollback exclusivo para APPROVER en versiones históricas */}
-                    {canRollback && !isActive && !document.is_locked && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setRollbackTarget(ver);
-                          setRollbackReason("");
-                        }}
-                        className="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors"
-                      >
-                        Restaurar v{ver.version_number}
-                      </button>
-                    )}
+                    {/* Acciones APPROVER sobre la versión */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {canApprove && canDictaminate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRollbackTarget(null);
+                            setReviewAction({ type: "approve", version: ver });
+                            setReviewNote("");
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 transition-colors"
+                        >
+                          Aprobar
+                        </button>
+                      )}
+
+                      {canReject && canDictaminate && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRollbackTarget(null);
+                            setReviewAction({ type: "reject", version: ver });
+                            setReviewNote("");
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 transition-colors"
+                        >
+                          Rechazar
+                        </button>
+                      )}
+
+                      {canRollback && !isCurrent && !document.is_locked && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReviewAction(null);
+                            setRollbackTarget(ver);
+                            setRollbackReason("");
+                          }}
+                          className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 transition-colors"
+                        >
+                          Restaurar v{ver.version_number}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 );
               })}

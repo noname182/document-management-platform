@@ -276,6 +276,36 @@ export const documentsService = {
     }
   },
 
+  async approveVersion(
+    documentId: string,
+    versionId: string,
+    comment?: string
+  ): Promise<DocumentVersionItem> {
+    try {
+      return await apiClient.post<DocumentVersionItem>(
+        `/documents/${documentId}/versions/${versionId}/approve`,
+        comment?.trim() ? { comment: comment.trim() } : {}
+      );
+    } catch (err) {
+      throw this.mapError(err, "Error al aprobar la versión del documento.");
+    }
+  },
+
+  async rejectVersion(
+    documentId: string,
+    versionId: string,
+    reason: string
+  ): Promise<DocumentVersionItem> {
+    try {
+      return await apiClient.post<DocumentVersionItem>(
+        `/documents/${documentId}/versions/${versionId}/reject`,
+        { reason }
+      );
+    } catch (err) {
+      throw this.mapError(err, "Error al rechazar la versión del documento.");
+    }
+  },
+
   mapError(err: unknown, fallback: string): DocumentVaultError {
     if (err instanceof DocumentVaultError) return err;
     if (err instanceof ApiHttpError) {

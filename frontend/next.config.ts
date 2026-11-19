@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  //borrar caso desastre
-  allowedDevOrigins: ["192.168.1.17"],
+  allowedDevOrigins: ["192.168.1.25", "localhost"],
 };
 
 export default nextConfig;

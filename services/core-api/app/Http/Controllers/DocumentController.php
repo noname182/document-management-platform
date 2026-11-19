@@ -472,4 +472,180 @@ class DocumentController extends Controller
             'Content-Length'      => strlen($upstream->body()),
         ]);
     }
+
+    public function approve(Request $request, string $id, string $versionId): JsonResponse
+    {
+        $validated = $request->validate([
+            'comment' => 'nullable|string|max:500',
+        ]);
+
+        $user = $request->user();
+
+        return DB::transaction(function () use ($request, $user, $id, $versionId, $validated) {
+            $document = Document::with('category')->lockForUpdate()->findOrFail($id);
+
+            if ($denied = $this->checkDepartmentAccess($user, $document)) {
+                return $denied;
+            }
+
+            if ($document->is_locked) {
+                return $this->error(
+                    'No se puede aprobar una versión mientras el documento esté bloqueado en edición.',
+                    423
+                );
+            }
+
+            $version = DocumentVersion::where('document_id', $document->id)
+                ->where('id', $versionId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($version->status === 'APPROVED') {
+                return $this->error('Esta versión ya se encuentra aprobada.', 422);
+            }
+
+            if ($version->status === 'REJECTED') {
+                return $this->error('No se puede aprobar una versión previamente rechazada; suba una nueva versión.', 422);
+            }
+
+            // Marcar versiones previas distintas como DEPRECATED si no están rechazadas
+            DocumentVersion::where('document_id', $document->id)
+                ->where('id', '!=', $version->id)
+                ->whereNotIn('status', ['REJECTED', 'DEPRECATED'])
+                ->update(['status' => 'DEPRECATED']);
+
+            $version->update([
+                'status' => 'APPROVED',
+            ]);
+
+            $document->update([
+                'current_version_id' => $version->id,
+            ]);
+
+            DocumentAuditLog::create([
+                'id'          => Str::uuid()->toString(),
+                'tenant_id'   => $document->tenant_id,
+                'document_id' => $document->id,
+                'version_id'  => $version->id,
+                'user_id'     => $user->id,
+                'action'      => 'VERSION_APPROVED',
+                'sha256_hash' => $version->sha256_hash,
+                'ip_address'  => $request->ip() ?? '127.0.0.1',
+                'user_agent'  => $request->userAgent(),
+                'details'     => [
+                    'version_number' => $version->version_number,
+                    'approved_by'    => $user->email,
+                    'comment'        => $validated['comment'] ?? 'Aprobado sin observaciones',
+                ],
+                'created_at'  => now(),
+            ]);
+
+            return $this->success(
+                $version->fresh('creator:id,full_name,email'),
+                "Versión v{$version->version_number} aprobada exitosamente."
+            );
+        });
+    }
+
+    /**
+     * Rechaza una versión específica con motivo obligatorio sin destruir el binario ni el historial.
+     */
+    public function reject(Request $request, string $id, string $versionId): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => 'required|string|min:5|max:500',
+        ]);
+
+        $user = $request->user();
+
+        return DB::transaction(function () use ($request, $user, $id, $versionId, $validated) {
+            $document = Document::with('category')->lockForUpdate()->findOrFail($id);
+
+            if ($denied = $this->checkDepartmentAccess($user, $document)) {
+                return $denied;
+            }
+
+            if ($document->is_locked) {
+                return $this->error(
+                    'No se puede rechazar una versión mientras el documento esté bloqueado en edición.',
+                    423
+                );
+            }
+
+            $version = DocumentVersion::where('document_id', $document->id)
+                ->where('id', $versionId)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($version->status === 'REJECTED') {
+                return $this->error('Esta versión ya se encuentra rechazada.', 422);
+            }
+
+            if ($version->status === 'APPROVED') {
+                return $this->error('No se puede rechazar una versión ya aprobada; genere una nueva revisión o aplique rollback.', 422);
+            }
+
+            $version->update([
+                'status' => 'REJECTED',
+            ]);
+
+            // Si la versión rechazada era la current_version_id, revertir puntero a la última aprobada/activa previa (o null)
+            if ($document->current_version_id === $version->id) {
+                $fallbackVersion = DocumentVersion::where('document_id', $document->id)
+                    ->where('id', '!=', $version->id)
+                    ->whereIn('status', ['APPROVED', 'ACTIVE', 'DEPRECATED'])
+                    ->orderByDesc('version_number')
+                    ->first();
+
+                if ($fallbackVersion && $fallbackVersion->status === 'DEPRECATED') {
+                    $fallbackVersion->update(['status' => 'ACTIVE']);
+                }
+
+                $document->update([
+                    'current_version_id' => $fallbackVersion?->id,
+                ]);
+            }
+
+            DocumentAuditLog::create([
+                'id'          => Str::uuid()->toString(),
+                'tenant_id'   => $document->tenant_id,
+                'document_id' => $document->id,
+                'version_id'  => $version->id,
+                'user_id'     => $user->id,
+                'action'      => 'VERSION_REJECTED',
+                'sha256_hash' => $version->sha256_hash,
+                'ip_address'  => $request->ip() ?? '127.0.0.1',
+                'user_agent'  => $request->userAgent(),
+                'details'     => [
+                    'version_number' => $version->version_number,
+                    'rejected_by'    => $user->email,
+                    'reason'         => $validated['reason'],
+                ],
+                'created_at'  => now(),
+            ]);
+
+            return $this->success(
+                $version->fresh('creator:id,full_name,email'),
+                "Versión v{$version->version_number} rechazada y registrada en auditoría."
+            );
+        });
+    }
+
+    /**
+     * Verifica aislamiento ABAC por departamento (soporta APPROVER transversal sin departamentos).
+     */
+    private function checkDepartmentAccess($user, Document $document): ?JsonResponse
+    {
+        $isAdmin = $user->hasRole('SYSTEM_ADMIN') || $user->hasRole('TENANT_ADMIN');
+        $allowedDeptIds = $user->departments()->pluck('departments.id')->toArray();
+
+        if (! $isAdmin && ! ($user->hasRole('APPROVER') && empty($allowedDeptIds))) {
+            $docDeptId = $document->category?->department_id;
+            if (! $docDeptId || ! in_array($docDeptId, $allowedDeptIds, true)) {
+                return $this->error('No tiene autorización departamental para dictaminar este expediente.', 403);
+            }
+        }
+
+        return null;
+    }
 }

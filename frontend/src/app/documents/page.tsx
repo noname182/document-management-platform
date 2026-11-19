@@ -63,6 +63,8 @@ export default function DocumentsVaultPage() {
   const canCheckout = permissions.includes("doc:checkout");
   const canCheckin = permissions.includes("doc:checkin");
   const canRollback = permissions.includes("doc:rollback");
+  const canApprove = permissions.includes("doc:approve");
+  const canReject = permissions.includes("doc:reject");
   const canDownload = permissions.includes("doc:download");
   const canReadAudit = permissions.includes("audit:read");
 
@@ -584,6 +586,8 @@ export default function DocumentsVaultPage() {
         canCheckin={canCheckin}
         canRollback={canRollback}
         canDownload={canDownload}
+        canApprove={canApprove}
+        canReject={canReject}
         onSuccessAction={async (msg) => {
           setFeedback({ message: msg, type: "success" });
           await reloadVault(selectedDeptId, canReadAudit);

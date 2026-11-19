@@ -26,7 +26,13 @@ export interface DocumentVersionItem {
   id: string;
   document_id: string;
   version_number: number;
-  status: "UPLOADING" | "ACTIVE" | "DEPRECATED" | string;
+  status:
+    | "UPLOADING"
+    | "ACTIVE"
+    | "APPROVED"
+    | "REJECTED"
+    | "DEPRECATED"
+    | string;
   storage_bucket: string;
   storage_key: string;
   original_filename: string;

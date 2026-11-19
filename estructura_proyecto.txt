@@ -1,4 +1,5 @@
 ﻿.gitignore
+.mcp.json
 base_de_datos.sql
 docker-compose.yml
 estructura_proyecto.txt
@@ -6,6 +7,7 @@ Jenkinsfile
 propuesta.html
 README.md
 sonar-project.properties
+.agent\skills\laravel-abac-vault\SKILL.md
 .vscode\settings.json
 contracts\processor-contract.yaml
 frontend\.env.local
@@ -33,12 +35,19 @@ frontend\src\app\globals.css
 frontend\src\app\layout.tsx
 frontend\src\app\page.tsx
 frontend\src\app\admin\page.tsx
+frontend\src\app\documents\page.tsx
 frontend\src\app\login\page.tsx
 frontend\src\app\tenant\page.tsx
 frontend\src\features\auth\index.ts
 frontend\src\features\auth\components\LoginForm.tsx
 frontend\src\features\auth\services\auth.service.ts
 frontend\src\features\auth\types\auth.types.ts
+frontend\src\features\documents\index.ts
+frontend\src\features\documents\components\CreateDocumentModal.tsx
+frontend\src\features\documents\components\DocumentDetailModal.tsx
+frontend\src\features\documents\components\VaultDocumentsTable.tsx
+frontend\src\features\documents\services\documents.service.ts
+frontend\src\features\documents\types\documents.types.ts
 frontend\src\features\system-admin\index.ts
 frontend\src\features\system-admin\components\CreateTenantModal.tsx
 frontend\src\features\system-admin\components\InfrastructureMetricsGrid.tsx
